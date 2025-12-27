@@ -1,0 +1,14 @@
+package com.java.ppp.pppbackend.repository;
+
+import com.java.ppp.pppbackend.entity.Role;
+import com.java.ppp.pppbackend.entity.RoleType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+
+@Repository
+public interface RoleRepository extends JpaRepository<Role, Long> {
+    Optional<Role> findByName(RoleType name);
+}
