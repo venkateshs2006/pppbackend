@@ -6,14 +6,11 @@ public enum TicketStatus {
     OPEN("open"),
     IN_PROGRESS("in_progress"),
     WAITING_RESPONSE("waiting_response"),
-    RESOLVED("resolved"),
     CLOSED("closed"),
-    STATUS_OPEN("open"),
-    STATUS_FOR_REVIEW("for_review"),
-    STATUS_REDO("redo"),
-    STATUS_RESOLVED("resolved"),
-    STATUS_PENDING_CLIENT("pending_client_approval"),
-    STATUS_CLOSED("closed");
+    FOR_REVIEW("for_review"),
+    REDO("redo"),
+    RESOLVED("resolved"),
+    PENDING_CLIENT_APPROVAL("pending_client_approval");
     private final String dbValue;
 
     TicketStatus(String dbValue) {

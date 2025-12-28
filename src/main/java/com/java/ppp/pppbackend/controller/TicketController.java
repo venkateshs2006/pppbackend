@@ -97,4 +97,19 @@ public class TicketController {
             @RequestParam Long clientId) {
         return ResponseEntity.ok(ticketService.clientApprove(id, clientId));
     }
+    // 1. Get by Ticket ID (UUID)
+    // Regex ensures this only triggers for valid UUID strings
+    @GetMapping("/{id}")
+    @Operation(summary = "Get Ticket by UUID", description = "Retrieve a single ticket by its UUID")
+    public ResponseEntity<TicketDTO> getTicketById(@PathVariable UUID id) {
+        return ResponseEntity.ok(ticketService.getTicketById(id));
+    }
+
+    // 2. Get by User ID (Long/Integer)
+    // Regex ensures this only triggers for numeric IDs
+    @GetMapping("/userid/{userId}")
+    @Operation(summary = "Get Tickets by User ID", description = "Retrieve all tickets assigned to or created by a specific User")
+    public ResponseEntity<List<TicketDTO>> getTicketsByUser(@PathVariable Long userId) {
+        return ResponseEntity.ok(ticketService.getTicketsByUser(userId));
+    }
 }

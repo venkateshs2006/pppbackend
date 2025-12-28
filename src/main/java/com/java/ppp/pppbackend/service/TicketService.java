@@ -14,10 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -119,12 +117,12 @@ public class TicketService {
         }
 
         // 2. Verify State
-        if (!TicketStatus.STATUS_FOR_REVIEW.equals(ticket.getStatus())) {
+        if (!TicketStatus.FOR_REVIEW.equals(ticket.getStatus())) {
             throw new RuntimeException("Ticket is not ready for review. Status is: " + ticket.getStatus());
         }
 
         // 3. Approve -> Mark Resolved
-        ticket.setStatus(TicketStatus.STATUS_RESOLVED);
+        ticket.setStatus(TicketStatus.RESOLVED);
         ticket.setResolvedAt(Timestamp.valueOf(LocalDateTime.now()));
 
         ticketRepository.save(ticket);
@@ -208,7 +206,7 @@ public class TicketService {
                 .orElseThrow(() -> new RuntimeException("Ticket not found"));
 
         // Move to Client Approval Status
-        ticket.setStatus(TicketStatus.STATUS_FOR_REVIEW);
+        ticket.setStatus(TicketStatus.FOR_REVIEW);
         ticket.setUpdatedAt(Timestamp.valueOf(LocalDateTime.now()));
 
         return convertToDTO(ticketRepository.save(ticket));
@@ -239,7 +237,17 @@ public class TicketService {
         return convertToDTO(ticketRepository.save(ticket));
     }
 
-
-
-
+    /**
+     * Get all tickets relevant to a user (Assigned OR Created by them)
+     */
+    public List<TicketDTO> getTicketsByUser(Long userId) {
+        return ticketRepository.findByAssignedToIdOrCreatedById(userId, userId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+    public TicketDTO getTicketById(UUID id) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Ticket not found with ID: " + id));
+        return convertToDTO(ticket);
+    }
 }

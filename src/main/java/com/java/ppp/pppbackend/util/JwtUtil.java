@@ -1,4 +1,5 @@
 package com.java.ppp.pppbackend.util;
+import com.java.ppp.pppbackend.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -12,6 +13,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtUtil {
@@ -35,19 +37,37 @@ public class JwtUtil {
         return claimsResolver.apply(claims);
     }
 
-    public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+    public String generateToken(User userDetails) {
+        Map<String, Object> extraClaims = new HashMap<>();
+            extraClaims.put("userName",userDetails.getUsername());
+            extraClaims.put("userId", userDetails.getId());
+            extraClaims.put("email", userDetails.getEmail());
+            extraClaims.put("role", userDetails.getRoles().toString()); // Optional
+        return generateToken(extraClaims, userDetails);
     }
 
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+    public String generateToken(Map<String, Object> extraClaims, User userDetails) {
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
-    public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(new HashMap<>(), userDetails, refreshExpiration);
+    public String generateRefreshToken(User userDetails) {
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("userName",userDetails.getUsername());
+        extraClaims.put("userId", userDetails.getId());
+        extraClaims.put("email", userDetails.getEmail());
+        String roleIds = userDetails.getRoles().stream()
+                .map(role -> String.valueOf(role.getId())) // Fetch ID and convert to String
+                .collect(Collectors.joining(","));         // Join with comma
+        extraClaims.put("roleId", roleIds);
+        String roleNames = userDetails.getRoles().stream()
+                .map(role -> String.valueOf(role.getName())) // Fetch ID and convert to String
+                .collect(Collectors.joining(","));
+        extraClaims.put("roleNames", roleNames);
+        return buildToken(extraClaims, userDetails, refreshExpiration);
     }
 
-    private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
+    private String buildToken(Map<String, Object> extraClaims, User userDetails, long expiration) {
+        System.out.println(extraClaims.toString());
         return Jwts.builder()
                 .claims(extraClaims)
                 .subject(userDetails.getUsername())

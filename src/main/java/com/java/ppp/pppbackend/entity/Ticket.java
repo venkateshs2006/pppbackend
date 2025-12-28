@@ -31,11 +31,11 @@ public class Ticket {
     private String description;
 
     @Column(nullable = false)
-    @Convert(converter = com.java.ppp.pppbackend.converter.TicketStatusConverter.class)
+    @Enumerated(EnumType.STRING)
     private TicketStatus status;
 
     @Column(nullable = false)
-    @Convert(converter = com.java.ppp.pppbackend.converter.TicketPriorityConverter.class)
+    @Enumerated(EnumType.STRING)
     private TicketPriority priority;
 
     @Column(length = 100)

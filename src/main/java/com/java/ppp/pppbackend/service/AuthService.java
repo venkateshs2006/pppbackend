@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -76,8 +77,8 @@ public class AuthService {
         emailService.sendVerificationEmail(user.getEmail(), verificationToken);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-        String accessToken = jwtUtil.generateToken(userDetails);
-        String refreshToken = jwtUtil.generateRefreshToken(userDetails);
+        String accessToken = jwtUtil.generateToken(user);
+        String refreshToken = jwtUtil.generateRefreshToken(user);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -106,8 +107,8 @@ public class AuthService {
         userRepository.save(user);
         System.out.println("Auth Service UserName :" + user.getUsername());
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-        String accessToken = jwtUtil.generateToken(userDetails);
-        String refreshToken = jwtUtil.generateRefreshToken(userDetails);
+        String accessToken = jwtUtil.generateToken(user);
+        String refreshToken = jwtUtil.generateRefreshToken(user);
         System.out.println("JWT Token Service UserName :" + accessToken);
         System.out.println("JWT refreshToken Service UserName :" + refreshToken);
         Set<String> roles = user.getRoles().stream()
@@ -133,11 +134,9 @@ public class AuthService {
             throw new UnauthorizedException("Invalid refresh token");
         }
 
-        String newAccessToken = jwtUtil.generateToken(userDetails);
-
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UnauthorizedException("User not found"));
-
+        String newAccessToken = jwtUtil.generateToken(user);
         Set<String> roles = user.getRoles().stream()
                 .map(role -> role.getName().name())
                 .collect(java.util.stream.Collectors.toSet());

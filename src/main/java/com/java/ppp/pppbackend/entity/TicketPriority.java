@@ -6,7 +6,7 @@ public enum TicketPriority {
     LOW("low"),
     MEDIUM("medium"),
     HIGH("high"),
-    URGENT("urgent");
+    CRITICAL("critical");
 
     private final String dbValue;
 
