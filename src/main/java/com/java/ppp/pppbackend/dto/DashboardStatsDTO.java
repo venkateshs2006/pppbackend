@@ -8,6 +8,7 @@ import lombok.ToString;
 @Builder
 @ToString
 public class DashboardStatsDTO {
+    private long totalOrganization;
     private long totalProjects;
     private long activeProjects;
     private long completedTasks;

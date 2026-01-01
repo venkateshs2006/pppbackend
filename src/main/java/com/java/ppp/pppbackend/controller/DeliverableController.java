@@ -18,10 +18,10 @@ public class DeliverableController {
     private final DeliverableService deliverableService;
 
     // Get all deliverables for a specific project
-    @GetMapping("/projects/{projectId}/deliverables")
-    public ResponseEntity<List<DeliverableDTO>> getProjectDeliverables(@PathVariable UUID projectId) {
-        return ResponseEntity.ok(deliverableService.getDeliverablesByProject(projectId));
-    }
+//    @GetMapping("/projects/{projectId}/deliverables")
+//    public ResponseEntity<List<DeliverableDTO>> getProjectDeliverables(@PathVariable UUID projectId) {
+//        return ResponseEntity.ok(deliverableService.getDeliverablesByProject(projectId));
+//    }
 
     // Create a new deliverable under a project
     @PostMapping("/projects/{projectId}/deliverables")

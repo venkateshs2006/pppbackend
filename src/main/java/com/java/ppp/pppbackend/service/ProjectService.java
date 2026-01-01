@@ -1,176 +1,142 @@
 package com.java.ppp.pppbackend.service;
 
-import com.java.ppp.pppbackend.dto.ProjectDTO;
-import com.java.ppp.pppbackend.dto.ProjectFileDTO;
-import com.java.ppp.pppbackend.dto.ProjectMemberDTO;
+import com.java.ppp.pppbackend.dto.*;
 import com.java.ppp.pppbackend.entity.*;
 import com.java.ppp.pppbackend.repository.*;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
-    private final ProjectFileRepository fileRepository;
-    private final ProjectMemberRepository memberRepository;
-    private final UserRepository userRepository; // Assuming this exists
-    private final OrganizationRepository organizationRepository;
-    // --- Project Operations ---
+    private final DeliverableRepository deliverableRepository;
+    private final TicketRepository ticketRepository;
+    // private final TaskRepository taskRepository; // Assuming you have tasks
 
-    public ProjectDTO createProject(ProjectDTO dto) {
-        User manager = null;
-        if (dto.getProjectManagerId() != null) {
-            manager = userRepository.findById(dto.getProjectManagerId())
-                    .orElseThrow(() -> new RuntimeException("Project Manager not found"));
+    public List<ProjectResponseDTO> getProjectsForUser(User user) {
+        List<Project> projects;
+
+        // --- 1. Determine Scope based on Role ---
+        boolean isSuperAdmin = user.getRoles().stream().anyMatch(r -> r.getName().getDbValue().equalsIgnoreCase("super_admin"));
+        boolean isAdmin = user.getRoles().stream().anyMatch(r -> r.getName().getDbValue().equalsIgnoreCase("admin"));
+
+        if (isSuperAdmin) {
+            // Super Admin: See ALL projects
+            projects = projectRepository.findAll();
+        } else if (isAdmin) {
+            // Organization Admin: See ALL projects in their Organization
+            if (user.getOrganization() != null) {
+                projects = projectRepository.findByOrganizationId(user.getOrganization().getId());
+            } else {
+                projects = Collections.emptyList();
+            }
+        } else {
+            // Consultants / Clients: See only ASSIGNED projects
+            projects = projectRepository.findProjectsByUserId(user.getId());
         }
 
-        Project project = Project.builder()
-                .organization(organizationRepository.findById(dto.getOrganizationId()).orElseThrow(() -> {
-                    log.error("Organization not found in database: {}", dto.getOrganizationId());
-                    return new UsernameNotFoundException("User not found: " + dto.getOrganizationId());
-                })).name(dto.getName())
-                .description(dto.getDescription())
-                .status(dto.getStatus() != null ? dto.getStatus() : ProjectStatus.PLANNING)
-                .startDate(dto.getStartDate())
-                .endDate(dto.getEndDate())
-                .budget(dto.getBudget())
-                .progress(0)
-                .projectManager(manager)
-                .build();
-
-        return mapToProjectDTO(projectRepository.save(project));
-    }
-
-    public ProjectDTO getProject(UUID id) {
-        return projectRepository.findById(id)
-                .map(this::mapToProjectDTO)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
-    }
-
-    public List<ProjectDTO> getAllProjects() {
-        return projectRepository.findAll().stream()
-                .map(this::mapToProjectDTO)
+        // --- 2. Map to DTOs ---
+        return projects.stream()
+                .map(this::mapToProjectResponseDTO)
                 .collect(Collectors.toList());
     }
 
-    // --- File Operations ---
+    private ProjectResponseDTO mapToProjectResponseDTO(Project p) {
+        // Fetch Stats (Ideally optimize this to batch queries for production)
+        long totalDeliverables = deliverableRepository.countByProjectId(p.getId());
+        long completedDeliverables = deliverableRepository.countByProjectIdAndStatus(p.getId(), "COMPLETED");
 
-    public List<ProjectFileDTO> getProjectFiles(UUID projectId) {
-        return fileRepository.findByProjectIdAndIsActiveTrue(projectId).stream()
-                .map(this::mapToFileDTO)
-                .collect(Collectors.toList());
-    }
+        long totalTickets = ticketRepository.countByProjectId(p.getId());
+        long openTickets = ticketRepository.countByProjectIdAndStatus(p.getId(), TicketStatus.OPEN);
 
-    @Transactional
-    public ProjectFileDTO addFileToProject(UUID projectId, ProjectFileDTO fileDto) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
+        // Placeholder for Tasks (if you don't have a Task entity yet)
+        long totalTasks = 0;
+        long completedTasks = 0;
 
-        User uploader = userRepository.findById(fileDto.getUploadedById())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // Calculate Spent (Placeholder logic or sum from Expenses entity)
+        BigDecimal spent = BigDecimal.ZERO;
 
-        ProjectFile file = ProjectFile.builder()
-                .project(project)
-                .name(fileDto.getName())
-                .fileType(fileDto.getFileType())
-                .fileUrl(fileDto.getFileUrl())
-                .fileSize(fileDto.getFileSize())
-                .mimeType(fileDto.getMimeType())
-                .uploadedBy(uploader)
-                .version(1)
-                .isActive(true)
-                .build();
-
-        return mapToFileDTO(fileRepository.save(file));
-    }
-
-    // --- Member Operations ---
-
-    public List<ProjectMemberDTO> getProjectMembers(UUID projectId) {
-        return memberRepository.findByProjectId(projectId).stream()
-                .map(this::mapToMemberDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional
-    public ProjectMemberDTO addMember(UUID projectId, ProjectMemberDTO memberDto) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
-
-        User user = userRepository.findById(memberDto.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (memberRepository.findByProjectIdAndUserId(projectId, memberDto.getUserId()).isPresent()) {
-            throw new RuntimeException("User is already a member of this project");
-        }
-
-        ProjectMember member = ProjectMember.builder()
-                .project(project)
-                .user(user)
-                .role(memberDto.getRole())
-                .permissions(memberDto.getPermissions())
-                .build();
-
-        return mapToMemberDTO(memberRepository.save(member));
-    }
-
-    // --- Mappers ---
-
-    private ProjectDTO mapToProjectDTO(Project p) {
-        return ProjectDTO.builder()
-                .id(p.getId())
-                .organizationId(p.getOrganization().getId())
-                .name(p.getName())
+        return ProjectResponseDTO.builder()
+                .id(p.getId().toString())
+                .title(p.getName()) // Assuming 'name' contains Arabic
+                .titleEn(p.getName()) // Placeholder for English
                 .description(p.getDescription())
-                .status(p.getStatus())
+                .descriptionEn(p.getDescription()) // Placeholder
+                .status(p.getStatus().toString().toLowerCase()) // Enum to string
+                .priority("medium") // Default if Priority field missing in Entity
+                .progress(p.getProgress() != null ? p.getProgress() : 0)
                 .startDate(p.getStartDate())
                 .endDate(p.getEndDate())
                 .budget(p.getBudget())
-                .progress(p.getProgress())
-                .projectManagerId(p.getProjectManager() != null ? p.getProjectManager().getId() : null)
-                .projectManagerName(p.getProjectManager() != null ?
-                        p.getProjectManager().getFirstName() + " " + p.getProjectManager().getLastName() : null)
-                .createdAt(p.getCreatedAt())
-                .updatedAt(p.getUpdatedAt())
+                .spent(spent)
+
+                // --- Nested Objects ---
+                .client(mapClientInfo(p))
+                .consultant(mapConsultantInfo(p.getProjectManager()))
+                .team(mapTeamMembers(p.getMembers()))
+
+                // --- Stats ---
+                .deliverables(totalDeliverables)
+                .completedDeliverables(completedDeliverables)
+                .tasks(totalTasks)
+                .completedTasks(completedTasks)
+                .tickets(totalTickets)
+                .openTickets(openTickets)
                 .build();
     }
 
-    private ProjectFileDTO mapToFileDTO(ProjectFile f) {
-        return ProjectFileDTO.builder()
-                .id(f.getId())
-                .name(f.getName())
-                .fileType(f.getFileType())
-                .fileUrl(f.getFileUrl())
-                .fileSize(f.getFileSize())
-                .mimeType(f.getMimeType())
-                .uploadedById(f.getUploadedBy() != null ? f.getUploadedBy().getId() : null)
-                .uploadedByName(f.getUploadedBy() != null ? f.getUploadedBy().getUsername() : null)
-                .version(f.getVersion())
-                .isActive(f.getIsActive())
-                .createdAt(f.getCreatedAt())
+    private ClientInfoDTO mapClientInfo(Project p) {
+        if (p.getOrganization() == null) return null;
+        return ClientInfoDTO.builder()
+                .organization(p.getOrganization().getName())
+                .organizationEn(p.getOrganization().getName()) // Placeholder
+                .name("Admin Contact") // Ideally fetch from Org Contact Person
+                .email("admin@org.com")
+                .avatar("OR")
                 .build();
     }
 
-    private ProjectMemberDTO mapToMemberDTO(ProjectMember m) {
-        return ProjectMemberDTO.builder()
-                .id(m.getId())
-                .projectId(m.getProject().getId())
-                .userId(m.getUser().getId())
-                .userName(m.getUser().getFirstName() + " " + m.getUser().getLastName())
-                .userEmail(m.getUser().getEmail())
-                .role(m.getRole())
-                .permissions(m.getPermissions())
-                .joinedAt(m.getJoinedAt())
+    private ConsultantInfoDTO mapConsultantInfo(User pm) {
+        if (pm == null) return null;
+        return ConsultantInfoDTO.builder()
+                .name(pm.getFirstName() + " " + pm.getLastName())
+                .role("Lead Consultant")
+                .avatar(pm.getFirstName().substring(0, 1))
                 .build();
+    }
+
+    private List<TeamMemberSummaryDTO> mapTeamMembers(List<ProjectMember> members) {
+        if (members == null) return Collections.emptyList();
+        return members.stream()
+                .map(m -> TeamMemberSummaryDTO.builder()
+                        .name(m.getUser().getFirstName() + " " + m.getUser().getLastName())
+                        .role(m.getRole()) // Project Role (e.g., 'Specialist')
+                        .email(m.getUser().getEmail())
+                        .avatar(m.getUser().getFirstName().substring(0, 1))
+                        .build())
+                .limit(5) // Limit for UI performance
+                .collect(Collectors.toList());
+    }
+
+    public List<DeliverableDTO> getProjectDeliverables(UUID projectId) {
+        // Use the repository method we added earlier
+        List<Deliverable> deliverables = deliverableRepository.findByProjectId(projectId);
+
+        return deliverables.stream()
+                .map(d -> DeliverableDTO.builder()
+                        .id(d.getId())
+                        .title(d.getTitle()) // or getTitle()
+                        .status(d.getStatus()) // Ensure this matches your Enum/String
+                        .createdAt(d.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

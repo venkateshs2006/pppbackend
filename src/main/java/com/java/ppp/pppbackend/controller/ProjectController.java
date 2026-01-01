@@ -1,11 +1,15 @@
 package com.java.ppp.pppbackend.controller;
 
-import com.java.ppp.pppbackend.dto.ProjectDTO;
-import com.java.ppp.pppbackend.dto.ProjectFileDTO;
-import com.java.ppp.pppbackend.dto.ProjectMemberDTO;
+import com.java.ppp.pppbackend.dto.*;
+import com.java.ppp.pppbackend.entity.User;
+import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
+import com.java.ppp.pppbackend.repository.UserRepository;
 import com.java.ppp.pppbackend.service.ProjectService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,45 +19,30 @@ import java.util.UUID;
 @RequestMapping("/api/projects")
 @RequiredArgsConstructor
 public class ProjectController {
+    @Autowired
+    private ProjectService projectService;
 
-    private final ProjectService projectService;
+       @Autowired
+        private UserRepository userRepository;
 
-    @PostMapping
-    public ResponseEntity<ProjectDTO> createProject(@RequestBody ProjectDTO projectDTO) {
-        return ResponseEntity.ok(projectService.createProject(projectDTO));
-    }
+        @GetMapping
+        public ResponseEntity<List<ProjectResponseDTO>> getAllProjects() {
+            // 1. Get Logged in User
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String username = authentication.getName();
 
-    @GetMapping
-    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
-        return ResponseEntity.ok(projectService.getAllProjects());
-    }
+            User currentUser = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ProjectDTO> getProject(@PathVariable UUID id) {
-        return ResponseEntity.ok(projectService.getProject(id));
-    }
+            // 2. Get Projects based on Role logic inside Service
+            List<ProjectResponseDTO> projects = projectService.getProjectsForUser(currentUser);
 
-    // --- Files ---
+            return ResponseEntity.ok(projects);
+        }
 
-    @GetMapping("/{id}/files")
-    public ResponseEntity<List<ProjectFileDTO>> getProjectFiles(@PathVariable UUID id) {
-        return ResponseEntity.ok(projectService.getProjectFiles(id));
-    }
 
-    @PostMapping("/{id}/files")
-    public ResponseEntity<ProjectFileDTO> addFile(@PathVariable UUID id, @RequestBody ProjectFileDTO fileDTO) {
-        return ResponseEntity.ok(projectService.addFileToProject(id, fileDTO));
-    }
-
-    // --- Members ---
-
-    @GetMapping("/{id}/members")
-    public ResponseEntity<List<ProjectMemberDTO>> getProjectMembers(@PathVariable UUID id) {
-        return ResponseEntity.ok(projectService.getProjectMembers(id));
-    }
-
-    @PostMapping("/{id}/members")
-    public ResponseEntity<ProjectMemberDTO> addMember(@PathVariable UUID id, @RequestBody ProjectMemberDTO memberDTO) {
-        return ResponseEntity.ok(projectService.addMember(id, memberDTO));
+    @GetMapping("/{id}/deliverables")
+    public ResponseEntity<List<DeliverableDTO>> getProjectDeliverables(@PathVariable UUID id) {
+        return ResponseEntity.ok(projectService.getProjectDeliverables(id));
     }
 }

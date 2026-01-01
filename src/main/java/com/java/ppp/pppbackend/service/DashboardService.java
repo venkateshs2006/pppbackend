@@ -2,172 +2,235 @@ package com.java.ppp.pppbackend.service;
 
 import com.java.ppp.pppbackend.dto.*;
 import com.java.ppp.pppbackend.entity.*;
-import com.java.ppp.pppbackend.repository.DeliverableRepository;
-import com.java.ppp.pppbackend.repository.ProjectRepository;
-
-import com.java.ppp.pppbackend.repository.TicketRepository;
+import com.java.ppp.pppbackend.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
 
-    @Autowired
-    private ProjectRepository projectRepo;
-
-    @Autowired
-    private TicketRepository ticketRepo;
-    @Autowired
-    private DeliverableRepository deliverableRepo;
+    private final ProjectRepository projectRepository;
+    private final OrganizationRepository organizationRepository;
+    private final DeliverableRepository deliverableRepository;
+    private final TicketRepository ticketRepository;
 
     public DashboardResponseDTO getDashboardData(User user) {
-        RoleType role = user.getRoles().iterator().next().getName(); // Assuming User -> Role -> RoleType
-        System.out.println("Dashboard Service started...");
-        DashboardStatsDTO stats;
-        List<RecentProjectDTO> projects;
-        List<RecentDeliverableDTO> deliverables;
-        List<RecentTicketDTO> tickets;
-        System.out.println("Dashboard Service Variable assigned...");
-        System.out.println(role);
-        // 1. Logic Switch based on Role (matching Dashboard.tsx logic)
-        if (role == RoleType.SUB_CONSULTANT) {
-            stats = getSubConsultantStats(user);
-            projects = getAssignedProjects(user);
-            // ... fetch assigned deliverables/tickets
-        } else if (role == RoleType.MAIN_CLIENT || role == RoleType.SUB_CLIENT) {
-            stats = getClientStats(user);
-            projects = getOrganizationProjects(user);
-            // ... fetch org deliverables/tickets
-        } else {
-            // Admin / Lead Consultant / Super Admin
-            System.out.println("Dashboard Service Else Conditions...");
-            stats = getGlobalStats();
-            projects = getGlobalProjects();
-        }
-        System.out.println("Dashboard Service Global stats ended...");
-        // 2. Fetch Common Lists (Simplified for brevity - mapped from Entities)
-        deliverables = new ArrayList<>(); // Implement repository calls similar to projects
-        tickets = new ArrayList<>();
+        // 1. Determine User Role/Scope
+        boolean isSuperAdmin = user.getRoles().stream()
+                .anyMatch(role -> role.getName().getDbValue().equalsIgnoreCase("super_admin"));
 
-        // 3. Lead Consultant Specifics
-        List<KPIDTO> kpis = null;
-        List<DeadlineDTO> deadlines = null;
-        System.out.println("Dashboard Service KPI started...");
-        if (role == RoleType.LEAD_CONSULTANT) {
-            kpis = generateKPIs();
-            deadlines = generateDeadlines();
+        // 2. Fetch Data Scope (Projects & IDs)
+        List<Project> scopeProjects;
+        if (isSuperAdmin) {
+            scopeProjects = projectRepository.findAll();
+        } else {
+            scopeProjects = projectRepository.findProjectsByUserId(user.getId());
         }
-        System.out.println("Dashboard Service Before ended...");
+
+        List<UUID> projectIds = scopeProjects.stream()
+                .map(Project::getId)
+                .collect(Collectors.toList());
+
+        // 3. Calculate Stats
+        DashboardStatsDTO stats = calculateStats(scopeProjects, isSuperAdmin, projectIds);
+
+        // 4. Fetch & Map Recent Projects (Top 5)
+        List<RecentProjectDTO> recentProjects = scopeProjects.stream()
+                //.sorted(Comparator.comparing(Project::getUpdatedAt).reversed()) // Uncomment if you track updates
+                .limit(5)
+                .map(this::mapToRecentProjectDTO)
+                .collect(Collectors.toList());
+
+        // 5. Fetch & Map Recent Deliverables (Top 5)
+        List<Deliverable> deliverablesRaw = isSuperAdmin
+                ? deliverableRepository.findTop5ByOrderByUpdatedAtDesc()
+                : deliverableRepository.findTop5ByProjectIdInOrderByUpdatedAtDesc(projectIds);
+
+        List<RecentDeliverableDTO> recentDeliverables = deliverablesRaw.stream()
+                .map(this::mapToRecentDeliverableDTO)
+                .collect(Collectors.toList());
+
+        // 6. Fetch & Map Recent Tickets (Top 5)
+        List<Ticket> ticketsRaw = isSuperAdmin
+                ? ticketRepository.findTop5ByOrderByCreatedAtDesc()
+                : ticketRepository.findTop5ByProjectIdInOrderByCreatedAtDesc(projectIds);
+
+        List<RecentTicketDTO> recentTickets = ticketsRaw.stream()
+                .map(this::mapToRecentTicketDTO)
+                .collect(Collectors.toList());
+
+        // 7. Calculate KPIs & Deadlines (Only for specific roles if needed, otherwise generic)
+        List<KPIDTO> kpis = calculateKPIs(stats);
+        List<DeadlineDTO> upcomingDeadlines = calculateDeadlines(scopeProjects);
+
         return DashboardResponseDTO.builder()
                 .stats(stats)
-                .recentProjects(projects)
-                .recentDeliverables(deliverables)
-                .recentTickets(tickets)
+                .recentProjects(recentProjects)
+                .recentDeliverables(recentDeliverables)
+                .recentTickets(recentTickets)
                 .kpis(kpis)
-                .upcomingDeadlines(deadlines)
+                .upcomingDeadlines(upcomingDeadlines)
                 .build();
     }
 
-    // --- Helper Methods ---
+    // =========================================================================
+    // Helper Methods: Statistics Calculation
+    // =========================================================================
+    private DashboardStatsDTO calculateStats(List<Project> projects, boolean isSuperAdmin, List<UUID> projectIds) {
+        long totalOrgs = isSuperAdmin
+                ? organizationRepository.count()
+                : projects.stream()
+                .map(p -> p.getOrganization() != null ? p.getOrganization().getId() : null) // Get ID from the object
+                .filter(Objects::nonNull) // Safety check to remove nulls
+                .distinct()
+                .count();
 
-    private DashboardStatsDTO getGlobalStats() {
+        long totalProjects = projects.size();
+        long activeProjects = projects.stream().filter(p -> "ACTIVE".equalsIgnoreCase(p.getStatus().getDbValue())).count();
 
-        System.out.println("Project Repo :"+projectRepo.countByStatus(ProjectStatus.ACTIVE));
-        System.out.println("Delivery Repo  :"+deliverableRepo.countByStatus("review"));
-        System.out.println("Ticket Repo   :"+ticketRepo.countByStatus(TicketStatus.OPEN));
-        System.out.println("Project Count  :"+projectRepo.count());
+        // Safe division for progress
+        double overallProgress = 0.0;
+        if (!projects.isEmpty()) {
+            double sum = projects.stream().mapToInt(p -> p.getProgress() != null ? p.getProgress() : 0).sum();
+            overallProgress = sum / projects.size();
+        }
 
+        // Fetch counts based on scope
+        long completedTasks;
+        long pendingApprovals;
+        long openTickets;
 
-        DashboardStatsDTO data = DashboardStatsDTO.builder()
-                .totalProjects(projectRepo.count())
-                .activeProjects(projectRepo.countByStatus(ProjectStatus.ACTIVE))
-                .pendingApprovals(deliverableRepo.countByStatus("review")) // Assuming 'review' = pending approval
-                .openTickets(ticketRepo.countByStatus(TicketStatus.OPEN))
-                .overallProgress(75.0) // Ideally calculate AVG from projects
-                .build();
-        System.out.println("Primary Data :"+data.toString());
-        return data;
-    }
+        if (isSuperAdmin || projectIds.isEmpty()) {
+            if (projectIds.isEmpty() && !isSuperAdmin) {
+                completedTasks = 0; pendingApprovals = 0; openTickets = 0;
+            } else {
+                // Assuming Deliverable status is also an Enum? If so, use DeliverableStatus.COMPLETED
+                // If Deliverable status is a String, keep it as "COMPLETED".
+                completedTasks = deliverableRepository.countByStatus("COMPLETED");
+                pendingApprovals = deliverableRepository.countByStatus("PENDING_APPROVAL");
 
-    private DashboardStatsDTO getSubConsultantStats(User user) {
-        // Only count tasks assigned to this consultant
+                // HERE IS THE FIX FOR THE 500 ERROR:
+                openTickets = ticketRepository.countByStatus(TicketStatus.OPEN);
+            }
+        } else {
+            completedTasks = deliverableRepository.countByStatusAndProjectIdIn("COMPLETED", projectIds);
+            pendingApprovals = deliverableRepository.countByStatusAndProjectIdIn("PENDING_APPROVAL", projectIds);
 
+            // HERE IS THE FIX FOR THE 500 ERROR:
+            openTickets = ticketRepository.countByStatusAndProjectIdIn(TicketStatus.OPEN, projectIds);
+        }
 
         return DashboardStatsDTO.builder()
-                .totalProjects(5) // Replace with actual Repo count query
-                .activeProjects(3)
-                .pendingApprovals(2)
-                .openTickets(1)
-                .overallProgress(60.0)
+                .totalOrganization(totalOrgs)
+                .totalProjects(totalProjects)
+                .activeProjects(activeProjects)
+                .completedTasks(completedTasks)
+                .pendingApprovals(pendingApprovals)
+                .openTickets(openTickets)
+                .overallProgress(Math.round(overallProgress * 100.0) / 100.0)
                 .build();
     }
 
-    private DashboardStatsDTO getClientStats(User user) {
-        // Filter by Organization ID
-        return DashboardStatsDTO.builder()
-                .totalProjects(3) // Replace with repo.countByOrganizationId...
-                .activeProjects(2)
-                .completedTasks(12)
-                .pendingApprovals(4)
-                .openTickets(2)
-                .overallProgress(45.0)
-                .build();
-    }
+    // =========================================================================
+    // Helper Methods: Mappers
+    // =========================================================================
 
-    private List<RecentProjectDTO> getGlobalProjects() {
-        // Map Entities to DTOs
-        return projectRepo.findAll(PageRequest.of(0, 5)).stream()
-                .map(p -> RecentProjectDTO.builder()
-                        .id(p.getId().toString())
-                        .title(p.getName()) // Assuming DB has Arabic name
-                        .titleEn(p.getName()) // You might need a separate column or translation table
-                        .progress(p.getProgress())
-                        .status(p.getStatus().toString())
-                        .clientName(p.getOrganization().getName())
-                        .dueDate(p.getEndDate())
-                        .build())
-                .toList();
-    }
+    private RecentProjectDTO mapToRecentProjectDTO(Project p) {
+        // Assuming your Organization Entity has a name, otherwise placeholders
+        String clientName = p.getOrganization() != null ? p.getOrganization().getName() : "Unknown Client";
 
-    private List<RecentProjectDTO> getAssignedProjects(User user) {
-        return projectRepo.findByMemberIdOrderByUpdatedAtDesc(user.getId(), PageRequest.of(0, 5))
-                .stream().map(this::mapToProjectDTO).toList();
-    }
-
-    private List<RecentProjectDTO> getOrganizationProjects(User user) {
-        // Assuming User has getOrganizationId()
-        // return projectRepo.findByOrganizationId...
-        return new ArrayList<>();
-    }
-
-    private RecentProjectDTO mapToProjectDTO(com.java.ppp.pppbackend.entity.Project p) {
         return RecentProjectDTO.builder()
                 .id(p.getId().toString())
-                .title(p.getName())
-                .progress(p.getProgress())
-                .status(p.getStatus().toString())
-                .clientName(p.getOrganization().getName())
+                .title(p.getName())       // Assuming 'name' is Arabic/Default
+                .titleEn(p.getName())     // Using same for EN if separate field missing
+                .progress(p.getProgress() != null ? p.getProgress() : 0)
+                .status(p.getStatus().getDbValue())
+                .clientName(clientName)
+                .clientNameEn(clientName)
                 .dueDate(p.getEndDate())
                 .build();
     }
 
-    // Mocking logic for Lead Consultant specifics
-    private List<KPIDTO> generateKPIs() {
-        return List.of(
-                KPIDTO.builder().label("Project Completion Rate").percentage(85).colorClass("bg-green-600").build(),
-                KPIDTO.builder().label("Client Satisfaction").percentage(92).colorClass("bg-blue-600").build()
-        );
+    private RecentDeliverableDTO mapToRecentDeliverableDTO(Deliverable d) {
+        return RecentDeliverableDTO.builder()
+                .id(d.getId().toString())
+                .title(d.getTitle())
+                .titleEn(d.getTitle())
+                .type("Document") // Placeholder or d.getType()
+                .status(d.getStatus())
+                .projectName(d.getProject().getName())
+                .projectNameEn(d.getProject().getName())
+                .version(d.getVersion() != null ? "v" + d.getVersion() : "v1.0")
+                .build();
     }
 
-    private List<DeadlineDTO> generateDeadlines() {
-        return List.of(
-                DeadlineDTO.builder().title("Security Policy Review").projectName("Cybersecurity Project").daysRemaining(2).build()
-        );
+    private RecentTicketDTO mapToRecentTicketDTO(Ticket t) {
+        return RecentTicketDTO.builder()
+                .id(t.getId().toString())
+                .title(t.getTitle())
+                .titleEn(t.getTitle())
+                .priority(t.getPriority().name()) // Assuming Enum
+                .status(t.getStatus().getDbValue())
+                .projectName(t.getProject().getName())
+                .projectNameEn(t.getProject().getName())
+                .createdAt(t.getCreatedAt().toLocalDate())
+                .build();
+    }
+
+    // =========================================================================
+    // Helper Methods: KPIs & Deadlines
+    // =========================================================================
+
+    private List<KPIDTO> calculateKPIs(DashboardStatsDTO stats) {
+        // Example Logic: Return Completion Rate & Active Project Rate
+        List<KPIDTO> kpis = new ArrayList<>();
+
+        // KPI 1: Project Completion Rate (Overall Progress)
+        kpis.add(KPIDTO.builder()
+                .label("Overall Progress")
+                .labelEn("Overall Progress")
+                .percentage((int) stats.getOverallProgress())
+                .colorClass("bg-blue-600")
+                .build());
+
+        // KPI 2: Task Completion Rate (Example calculation)
+        long totalTasks = stats.getCompletedTasks() + stats.getPendingApprovals(); // Simplified denominator
+        int taskRate = totalTasks > 0 ? (int) ((stats.getCompletedTasks() * 100) / totalTasks) : 0;
+
+        kpis.add(KPIDTO.builder()
+                .label("Task Completion")
+                .labelEn("Task Completion")
+                .percentage(taskRate)
+                .colorClass("bg-green-600")
+                .build());
+
+        return kpis;
+    }
+
+    private List<DeadlineDTO> calculateDeadlines(List<Project> projects) {
+        // Filter projects ending in next 30 days
+        LocalDate today = LocalDate.now();
+        LocalDate thirtyDaysLater = today.plusDays(30);
+
+        return projects.stream()
+                .filter(p -> p.getEndDate() != null &&
+                        !p.getEndDate().isBefore(today) &&
+                        p.getEndDate().isBefore(thirtyDaysLater))
+                .sorted(Comparator.comparing(Project::getEndDate))
+                .limit(5)
+                .map(p -> DeadlineDTO.builder()
+                        .title("Project Due: " + p.getName())
+                        .titleEn("Project Due: " + p.getName())
+                        .projectName(p.getName())
+                        .projectNameEn(p.getName())
+                        .daysRemaining((int) ChronoUnit.DAYS.between(today, p.getEndDate()))
+                        .build())
+                .collect(Collectors.toList());
     }
 }

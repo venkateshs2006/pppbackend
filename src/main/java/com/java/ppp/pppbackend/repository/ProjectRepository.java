@@ -29,7 +29,12 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     @Query("SELECT AVG(p.progress) FROM Project p WHERE p.organization.id = :orgId")
     Double getAverageProgressByOrganization(@Param("orgId") String orgId);
 
+    List<Project> findByProjectManagerId(Long projectManagerId);
+    // 1. For Organization Admins: Fetch all projects in their specific Org
     List<Project> findByOrganizationId(Long organizationId);
 
-    List<Project> findByProjectManagerId(Long projectManagerId);
+    // 2. For Consultants/Clients: Fetch projects where they are a member
+    // Assumes you have a ProjectMember entity linking Project and User
+    @Query("SELECT p FROM Project p JOIN p.members m WHERE m.user.id = :userId")
+    List<Project> findProjectsByUserId(@Param("userId") Long userId);
 }

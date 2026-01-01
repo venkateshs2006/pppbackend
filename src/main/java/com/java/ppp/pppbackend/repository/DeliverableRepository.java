@@ -25,4 +25,20 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, UUID> 
     List<Deliverable> findByProjectIdOrderByOrderIndexAsc(UUID projectId);
     List<Deliverable> findByParentId(UUID parentId);
 
+    List<Deliverable> findTop5ByOrderByUpdatedAtDesc();
+    List<Deliverable> findTop5ByProjectIdInOrderByUpdatedAtDesc(List<UUID> projectIds);
+
+    long countByStatusAndProjectIdIn(String status, List<UUID> projectIds);
+
+
+    // Count methods
+    long countByProjectId(UUID projectId);
+
+    // Check if your Deliverable entity uses String or Enum for status.
+    // If String:
+    long countByProjectIdAndStatus(UUID projectId, String status);
+    // If Enum:
+    // long countByProjectIdAndStatus(UUID projectId, DeliverableStatus status);
+    List<Deliverable> findByProjectId(UUID projectId);
+
 }

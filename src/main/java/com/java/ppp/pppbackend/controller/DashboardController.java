@@ -33,7 +33,7 @@ public class DashboardController {
         // 2. Fetch full user entity (including Role and Organization)
         User currentUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        System.out.println("User Details :"+currentUser.toString());
+       // System.out.println("User Details :"+currentUser.toString());
         // 3. Generate Dashboard Data
         DashboardResponseDTO data = dashboardService.getDashboardData(currentUser);
 
