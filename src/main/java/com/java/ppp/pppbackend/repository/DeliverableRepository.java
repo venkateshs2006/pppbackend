@@ -23,7 +23,6 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, UUID> 
     List<Deliverable> findByMemberId(@Param("userId") Long userId, Pageable pageable);
 
     List<Deliverable> findByProjectIdOrderByOrderIndexAsc(UUID projectId);
-    List<Deliverable> findByParentId(UUID parentId);
 
     List<Deliverable> findTop5ByOrderByUpdatedAtDesc();
     List<Deliverable> findTop5ByProjectIdInOrderByUpdatedAtDesc(List<UUID> projectIds);

@@ -1,11 +1,7 @@
 package com.java.ppp.pppbackend.entity;
 
-import com.java.ppp.pppbackend.converter.DeliverableTypeConverter;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -30,35 +26,31 @@ public class Deliverable {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
-    @Convert(converter = DeliverableTypeConverter.class)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 50)
     private DeliverableType type;
 
-    // e.g., 'draft', 'review', 'approved'
     @Column(length = 50)
-    private String status;
+    @Builder.Default
+    private String status = "DRAFT"; // Handle default in Java
 
     @Column(length = 20)
-    private String version;
+    @Builder.Default
+    private String version = "1.0"; // Handle default in Java
 
     @Column(name = "order_index")
-    private Integer orderIndex;
-
-    // Relationships
+    @Builder.Default
+    private Integer orderIndex = 0;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")
+    @ToString.Exclude
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
-    private Deliverable parent;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
+    @ToString.Exclude
     private User createdBy;
-
-    // Timestamps
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

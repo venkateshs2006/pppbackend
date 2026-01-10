@@ -9,11 +9,24 @@ public class DeliverableTypeConverter implements AttributeConverter<DeliverableT
 
     @Override
     public String convertToDatabaseColumn(DeliverableType attribute) {
-        return attribute == null ? null : attribute.getDbValue();
+        if (attribute == null) {
+            return null;
+        }
+        // Write to DB as lowercase (matches your SQL check constraints)
+        return attribute.name().toLowerCase();
     }
 
     @Override
     public DeliverableType convertToEntityAttribute(String dbData) {
-        return dbData == null ? null : DeliverableType.fromDbValue(dbData);
+        if (dbData == null || dbData.isEmpty()) {
+            return null;
+        }
+        try {
+            // Read from DB (which is lowercase) and convert to Enum (UPPERCASE)
+            return DeliverableType.valueOf(dbData.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // Handle unknown values gracefully (optional)
+            return null;
+        }
     }
 }

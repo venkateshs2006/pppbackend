@@ -1,6 +1,7 @@
 package com.java.ppp.pppbackend.controller;
 
 import com.java.ppp.pppbackend.dto.*;
+import com.java.ppp.pppbackend.entity.Role;
 import com.java.ppp.pppbackend.entity.User;
 import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
 import com.java.ppp.pppbackend.repository.UserRepository;
@@ -45,4 +46,45 @@ public class ProjectController {
     public ResponseEntity<List<DeliverableDTO>> getProjectDeliverables(@PathVariable UUID id) {
         return ResponseEntity.ok(projectService.getProjectDeliverables(id));
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectResponseDTO> updateProject(
+            @PathVariable UUID id,
+            @RequestBody ProjectDTO projectDTO) {
+        return ResponseEntity.ok(projectService.updateProject(id, projectDTO));
+    }
+
+    @PostMapping
+    public ResponseEntity<ProjectResponseDTO> createProject(@RequestBody ProjectDTO projectDTO) {
+        return ResponseEntity.ok(projectService.createProject(projectDTO));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable UUID id) {
+        projectService.deleteProject(id);
+        return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/{id}")
+    public ResponseEntity<ProjectResponseDTO> getProject(@PathVariable UUID id) {
+        return ResponseEntity.ok(projectService.getProject(id));
+    }
+    @GetMapping("/roles")
+    public ResponseEntity<List<Role>> getProjectMembers() {
+        return ResponseEntity.ok(projectService.getAllProjectRole());
+    }
+    @GetMapping("/{id}/members")
+    public ResponseEntity<List<TeamMemberSummaryDTO>> getProjectMembers(@PathVariable UUID id) {
+        return ResponseEntity.ok(projectService.getProjectMembers(id));
+    }
+    @PostMapping("/{id}/members/{userId}/{role}/add")
+    public ResponseEntity<TeamMemberSummaryDTO> addProjectMember(@PathVariable UUID id,@PathVariable Long userId, @PathVariable String role) {
+        return ResponseEntity.ok(projectService.addProjectMember(id, userId, role));
+    }
+    @DeleteMapping("/{id}/members/{userId}/{role}/delete")
+    public ResponseEntity<TeamMemberSummaryDTO> removeProjectMember(@PathVariable UUID id,@PathVariable Long userId, @PathVariable String role) {
+        projectService.removeProjectMember(id, userId, role);
+            return ResponseEntity.noContent().build();
+
+    }
+
 }

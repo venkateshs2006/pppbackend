@@ -42,11 +42,11 @@ public class Organization {
 
     @Column(name = "stripe_customer_id")
     private String stripeCustomerId;
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
-
+    @Column(name = "satisfaction")
+    private Integer satisfaction;
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

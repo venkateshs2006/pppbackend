@@ -16,9 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,7 +50,7 @@ public class TicketService {
     // --- Comment Operations ---
 
     @Transactional
-    public TicketCommentDTO addComment(UUID ticketId, TicketCommentDTO dto) {
+    public TicketDTO addComment(UUID ticketId, TicketCommentDTO dto) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new RuntimeException("Ticket not found"));
 
@@ -67,7 +65,9 @@ public class TicketService {
         TicketCommentDTO responseDTO = new TicketCommentDTO();
         BeanUtils.copyProperties(comment, responseDTO);
         responseDTO.setTicketId(ticket.getId());
-        return responseDTO;
+        Ticket newticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+        return mapToDTO(newticket);
     }
 
     public List<TicketCommentDTO> getComments(UUID ticketId) {
@@ -249,5 +249,108 @@ public class TicketService {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Ticket not found with ID: " + id));
         return convertToDTO(ticket);
+    }
+
+    public List<TicketDTO> getAllTickets(String status, String priority) {
+        return ticketRepository.findAll().stream().map(tickets -> {
+            TicketDTO dto = mapToDTO(tickets);
+            return dto;
+        }).collect(Collectors.toList());
+    }
+    private TicketDTO mapToDTO(Ticket ticket) {
+        TicketDTO dto = new TicketDTO();
+
+        // 1. Basic Fields
+        dto.setId(ticket.getId());
+        dto.setTitle(ticket.getTitle());
+        dto.setTitleEn(ticket.getTitle());
+        dto.setDescription(ticket.getDescription());
+        dto.setDescriptionEn(ticket.getDescription());
+
+        // Convert Enums to Lowercase for UI
+        dto.setStatus(ticket.getStatus().name().toLowerCase());
+        dto.setPriority(ticket.getPriority().name().toLowerCase());
+
+        dto.setCategory(ticket.getCategory());
+        dto.setCategoryEn(ticket.getCategory());
+
+        dto.setCreatedAt(ticket.getCreatedAt().toString());
+        dto.setUpdatedAt(ticket.getUpdatedAt().toString());
+        dto.setDueDate(ticket.getDueDate() != null ? ticket.getDueDate().toString() : null);
+
+
+        // 2. Map Project
+        if (ticket.getProject() != null) {
+            TicketDTO.ProjectInfo projectInfo = TicketDTO.ProjectInfo.builder()
+                    .id(ticket.getProject().getId())
+                    .name(ticket.getProject().getTitleAr()) // Assuming Ar title maps to 'name'
+                    .nameEn(ticket.getProject().getTitleEn())
+                    .build();
+            dto.setProject(projectInfo);
+
+            // 3. Map Client (Derived from Project -> Organization)
+            Organization org = ticket.getProject().getOrganization();
+            if (org != null) {
+                String initial = (org.getName() != null && !org.getName().isEmpty())
+                        ? org.getName().substring(0, 1).toUpperCase() : "C";
+
+                TicketDTO.ClientInfo clientInfo = TicketDTO.ClientInfo.builder()
+                        .name(org.getName())         // Using Org Name as Client Name fallback
+                        .nameEn(org.getName())       // Update if you have specific client user columns
+                        .organization(org.getName())
+                        .organizationEn(org.getName())
+                        .avatar(initial)
+                        .build();
+                dto.setClient(clientInfo);
+            }
+        }
+
+        // Handle null client to prevent frontend crash
+        if (dto.getClient() == null) {
+            dto.setClient(new TicketDTO.ClientInfo("Unknown", "Unknown", "N/A", "N/A", "?"));
+        }
+
+        // 4. Map Assigned User
+        if (ticket.getAssignedTo() != null) {
+            User user = ticket.getAssignedTo();
+            String initial = (user.getFirstName()+user.getLastName()).substring(0, 1).toUpperCase();
+
+            TicketDTO.AssignedInfo assignedInfo = TicketDTO.AssignedInfo.builder()
+                    .id(String.valueOf(user.getId()))
+                    .name((user.getFirstName()+user.getLastName()))
+                    .role(user.getRoles().stream().findFirst().get().getName().toString())
+                    .avatar(initial)
+                    .build();
+            dto.setAssignedTo(assignedInfo);
+        }
+
+        // 5. Map Responses
+        if (ticket.getResponses() != null) {
+            List<TicketDTO.TicketResponseDTO> responses = ticket.getResponses().stream().map(res -> {
+                User author = ticket.getAssignedTo(); // Assuming 'user' is the author of the comment
+                String authorInitial = author.getFirstName().substring(0, 1).toUpperCase();
+
+                TicketDTO.TicketResponseDTO.ResponseAuthor authorInfo = TicketDTO.TicketResponseDTO.ResponseAuthor.builder()
+                        .name(author.getFirstName()+" "+author.getLastName())
+                        .role(author.getRoles().stream().findFirst().get().getName().toString())
+                        .avatar(authorInitial)
+                        .build();
+
+                return TicketDTO.TicketResponseDTO.builder()
+                        .id(String.valueOf(res.getId()))
+                        .message(res.getComment())
+                        .messageEn(res.getComment()) // Or translate if you have it
+                        .timestamp(res.getCreatedAt().toString())
+                        .attachments(null)
+                        .author(authorInfo)
+                        .build();
+            }).collect(Collectors.toList());
+
+            dto.setResponses(responses);
+        } else {
+            dto.setResponses(new ArrayList<>());
+        }
+        dto.setTags(Arrays.asList("Tag1", "Tag2"));
+        return dto;
     }
 }

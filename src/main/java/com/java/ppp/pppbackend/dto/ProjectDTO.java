@@ -15,14 +15,20 @@ public class ProjectDTO {
     private UUID id;
     private Long organizationId;
     private String name;
-    private String description;
     private ProjectStatus status;
     private LocalDate startDate;
     private LocalDate endDate;
     private BigDecimal budget;
+    private BigDecimal spent;
     private Integer progress;
     private Long projectManagerId;
     private String projectManagerName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String title;
+    private String titleEn;
+    private String description;
+    private String descriptionEn;
+    private String priority;
+    private String clientId; // To link organization
 }

@@ -147,8 +147,8 @@ public class DashboardService {
 
         return RecentProjectDTO.builder()
                 .id(p.getId().toString())
-                .title(p.getName())       // Assuming 'name' is Arabic/Default
-                .titleEn(p.getName())     // Using same for EN if separate field missing
+                .title(p.getTitleAr())       // Assuming 'name' is Arabic/Default
+                .titleEn(p.getTitleEn())     // Using same for EN if separate field missing
                 .progress(p.getProgress() != null ? p.getProgress() : 0)
                 .status(p.getStatus().getDbValue())
                 .clientName(clientName)
@@ -164,8 +164,8 @@ public class DashboardService {
                 .titleEn(d.getTitle())
                 .type("Document") // Placeholder or d.getType()
                 .status(d.getStatus())
-                .projectName(d.getProject().getName())
-                .projectNameEn(d.getProject().getName())
+                .projectName(d.getProject().getTitleAr())
+                .projectNameEn(d.getProject().getTitleEn())
                 .version(d.getVersion() != null ? "v" + d.getVersion() : "v1.0")
                 .build();
     }
@@ -177,8 +177,8 @@ public class DashboardService {
                 .titleEn(t.getTitle())
                 .priority(t.getPriority().name()) // Assuming Enum
                 .status(t.getStatus().getDbValue())
-                .projectName(t.getProject().getName())
-                .projectNameEn(t.getProject().getName())
+                .projectName(t.getProject().getTitleAr())
+                .projectNameEn(t.getProject().getTitleEn())
                 .createdAt(t.getCreatedAt().toLocalDate())
                 .build();
     }
@@ -225,10 +225,10 @@ public class DashboardService {
                 .sorted(Comparator.comparing(Project::getEndDate))
                 .limit(5)
                 .map(p -> DeadlineDTO.builder()
-                        .title("Project Due: " + p.getName())
-                        .titleEn("Project Due: " + p.getName())
-                        .projectName(p.getName())
-                        .projectNameEn(p.getName())
+                        .title("Project Due: " + p.getTitleAr())
+                        .titleEn("Project Due: " + p.getTitleEn())
+                        .projectName(p.getTitleAr())
+                        .projectNameEn(p.getTitleEn())
                         .daysRemaining((int) ChronoUnit.DAYS.between(today, p.getEndDate()))
                         .build())
                 .collect(Collectors.toList());

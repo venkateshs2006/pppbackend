@@ -35,4 +35,3 @@ public class ProjectResponseDTO {
     private long tickets;
     private long openTickets;
 }
-

@@ -15,13 +15,19 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/tickets")
+@RequestMapping("/api/tickets")
 @RequiredArgsConstructor
 @Tag(name = "Tickets", description = "Ticket and Support Management API")
 public class TicketController {
     @Autowired
     private TicketService ticketService;
-
+    @GetMapping
+    public ResponseEntity<List<TicketDTO>> getAllTickets(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String priority
+    ) {
+        return ResponseEntity.ok(ticketService.getAllTickets(status, priority));
+    }
     @PostMapping
     @Operation(summary = "Create a new Ticket")
     public ResponseEntity<TicketDTO> createTicket(@RequestBody TicketDTO ticketDTO) {
@@ -38,7 +44,7 @@ public class TicketController {
 
     @PostMapping("/{ticketId}/comments")
     @Operation(summary = "Add a comment to a ticket")
-    public ResponseEntity<TicketCommentDTO> addComment(
+    public ResponseEntity<TicketDTO> addComment(
             @PathVariable UUID ticketId,
             @RequestBody TicketCommentDTO commentDTO) {
         return ResponseEntity.ok(ticketService.addComment(ticketId, commentDTO));

@@ -1,10 +1,7 @@
 package com.java.ppp.pppbackend.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -17,29 +14,35 @@ import java.util.UUID;
 @Entity
 @Table(name = "projects")
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Project {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "organization_id")
-    private Organization organization;// Mapping as ID to decouple, or use @ManyToOne if Organization entity exists
+    @Column(name = "title_ar")
+    private String titleAr;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "title_en", nullable = false)
+    private String titleEn;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+    @Column(name = "description_ar", columnDefinition = "TEXT")
+    private String descriptionAr;
 
-    @Column(nullable = false)
-  //  @Enumerated(EnumType.STRING)
+    @Column(name = "description_en", columnDefinition = "TEXT")
+    private String descriptionEn;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 50)
     @Convert(converter = com.java.ppp.pppbackend.converter.ProjectStatusConverter.class)
     private ProjectStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private ProjectPriority priority;
 
     @Column(name = "start_date")
     private LocalDate startDate;
@@ -47,21 +50,20 @@ public class Project {
     @Column(name = "end_date")
     private LocalDate endDate;
 
-    @Column(precision = 12, scale = 2)
-    private BigDecimal budget;
+      // ✅ FIX: Remove 'default 0.00' from columnDefinition
+    @Column(precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal budget = BigDecimal.ZERO;
 
-    @Column(name = "progress")
-    private Integer progress;
+    // ✅ FIX: Remove 'default 0.00' from columnDefinition
+    @Column(precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal spent = BigDecimal.ZERO;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_manager_id")
-    private User projectManager;
+    // ✅ FIX: Remove 'default 0' SQL definition
+    @Builder.Default
+    private Integer progress = 0;
 
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ProjectMember> members;
-
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ProjectFile> files;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -72,5 +74,27 @@ public class Project {
     private LocalDateTime updatedAt;
 
 
-}
+    // --- Relationships ---
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    @ToString.Exclude
+    private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_manager_id")
+    @ToString.Exclude
+    private User projectManager;
+
+    @OneToMany( mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    private List<ProjectMember> members;
+
+    // This stores the list of strings in a separate joined table automatically
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL)
+    private List<Deliverable> deliverables;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    private List<ProjectFile> files;
+}

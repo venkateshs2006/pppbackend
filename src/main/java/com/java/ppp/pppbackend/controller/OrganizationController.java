@@ -1,5 +1,6 @@
 package com.java.ppp.pppbackend.controller;
 
+import com.java.ppp.pppbackend.dto.ClientDashboardStatsDTO;
 import com.java.ppp.pppbackend.dto.OrganizationDTO;
 import com.java.ppp.pppbackend.service.OrganizationService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,5 +42,10 @@ public class OrganizationController {
     public ResponseEntity<Void> deleteOrganization(@PathVariable Long id) {
         organizationService.deleteOrganization(id);
         return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/stats")
+    public ResponseEntity<ClientDashboardStatsDTO> getDashboardStats() {
+        ClientDashboardStatsDTO stats = organizationService.getDashboardStats();
+        return ResponseEntity.ok(stats);
     }
 }

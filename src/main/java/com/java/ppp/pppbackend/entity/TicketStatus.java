@@ -10,6 +10,7 @@ public enum TicketStatus {
     FOR_REVIEW("for_review"),
     REDO("redo"),
     RESOLVED("resolved"),
+    PLANNING("planning"),
     PENDING_CLIENT_APPROVAL("pending_client_approval");
     private final String dbValue;
 

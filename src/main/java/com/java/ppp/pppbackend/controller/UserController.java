@@ -78,10 +78,10 @@ public class UserController {
                     @ApiResponse(responseCode = "403", description = "Access denied - not admin")
             }
     )
-    @GetMapping("/")
+    @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserDTO>> getAllUsers(@RequestParam(defaultValue = "0") int pageNumber,
-                                                     @RequestParam(defaultValue = "10") int pageSize) {
+                                                     @RequestParam(defaultValue = "100") int pageSize) {
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
         List<UserDTO> users = userService.getAllUsers(pageable).stream().toList();
         return ResponseEntity.ok(users);
@@ -100,6 +100,13 @@ public class UserController {
                     @ApiResponse(responseCode = "400", description = "Validation error")
             }
     )
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or authentication.principal.id == #id")
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserDTO user) {
+        UserDTO createdUser = userService.createUser(user);
+        return ResponseEntity.ok(createdUser);
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or authentication.principal.id == #id")
     public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @Valid @RequestBody UserDTO user) {

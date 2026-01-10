@@ -1,7 +1,6 @@
 package com.java.ppp.pppbackend.dto;
 
 
-import com.java.ppp.pppbackend.entity.DeliverableType;
 import lombok.Builder;
 import lombok.Data;
 
@@ -12,16 +11,18 @@ import java.util.UUID;
 @Builder
 public class DeliverableDTO {
     private UUID id;
-    private UUID projectId;
-    private UUID parentId;
     private String title;
     private String description;
-    private DeliverableType type;
-    private String status;
+    private String type;       // "guide", "policy", etc.
+    private String status;     // "DRAFT", "COMPLETED"
     private String version;
     private Integer orderIndex;
-    private Long createdById;
-    private String createdByName;
+
+    // Relationship IDs
+    private UUID projectId;  // UUID as String
+    private Long createdById;  // User ID as Long
+    private String createdByName; // Optional: To show who created it
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

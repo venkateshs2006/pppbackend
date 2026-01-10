@@ -1,12 +1,8 @@
 package com.java.ppp.pppbackend.service;
-
 import com.java.ppp.pppbackend.dto.DeliverableDTO;
-import com.java.ppp.pppbackend.entity.Deliverable;
-import com.java.ppp.pppbackend.entity.Project;
-import com.java.ppp.pppbackend.entity.User;
-import com.java.ppp.pppbackend.repository.DeliverableRepository;
-import com.java.ppp.pppbackend.repository.ProjectRepository;
-import com.java.ppp.pppbackend.repository.UserRepository;
+import com.java.ppp.pppbackend.entity.*;
+import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
+import com.java.ppp.pppbackend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,84 +19,92 @@ public class DeliverableService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
 
-    public List<DeliverableDTO> getDeliverablesByProject(UUID projectId) {
-        return deliverableRepository.findByProjectIdOrderByOrderIndexAsc(projectId).stream()
+    @Transactional(readOnly = true)
+    public List<DeliverableDTO> getProjectDeliverables(UUID projectId) {
+        return deliverableRepository.findByProjectIdOrderByOrderIndexAsc(projectId)
+                .stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
-    public DeliverableDTO getDeliverable(UUID id) {
-        Deliverable deliverable = deliverableRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Deliverable not found"));
-        return mapToDTO(deliverable);
-    }
-
     @Transactional
     public DeliverableDTO createDeliverable(DeliverableDTO dto) {
-        Project project = projectRepository.findById(dto.getProjectId())
-                .orElseThrow(() -> new RuntimeException("Project not found"));
-
-        Deliverable parent = null;
-        if (dto.getParentId() != null) {
-            parent = deliverableRepository.findById(dto.getParentId())
-                    .orElseThrow(() -> new RuntimeException("Parent deliverable not found"));
-        }
-
-        User creator = null;
-        // In a real app, get ID from SecurityContext
-        if (dto.getCreatedById() != null) {
-            creator = userRepository.findById(dto.getCreatedById()).orElse(null);
-        }
-
-        Deliverable deliverable = Deliverable.builder()
-                .project(project)
-                .parent(parent)
-                .title(dto.getTitle())
-                .description(dto.getDescription())
-                .type(dto.getType())
-                .status(dto.getStatus() != null ? dto.getStatus() : "draft")
-                .version(dto.getVersion() != null ? dto.getVersion() : "1.0")
-                .orderIndex(dto.getOrderIndex() != null ? dto.getOrderIndex() : 0)
-                .createdBy(creator)
-                .build();
-
-        return mapToDTO(deliverableRepository.save(deliverable));
+        Deliverable deliverable = new Deliverable();
+        return saveOrUpdate(deliverable, dto);
     }
 
     @Transactional
     public DeliverableDTO updateDeliverable(UUID id, DeliverableDTO dto) {
         Deliverable deliverable = deliverableRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Deliverable not found"));
-
-        deliverable.setTitle(dto.getTitle());
-        deliverable.setDescription(dto.getDescription());
-        deliverable.setType(dto.getType());
-        deliverable.setStatus(dto.getStatus());
-        deliverable.setVersion(dto.getVersion());
-        deliverable.setOrderIndex(dto.getOrderIndex());
-
-        return mapToDTO(deliverableRepository.save(deliverable));
+                .orElseThrow(() -> new ResourceNotFoundException("Deliverable not found"));
+        return saveOrUpdate(deliverable, dto);
     }
 
+    @Transactional
     public void deleteDeliverable(UUID id) {
+        if (!deliverableRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Deliverable not found");
+        }
         deliverableRepository.deleteById(id);
+    }
+
+    private DeliverableDTO saveOrUpdate(Deliverable entity, DeliverableDTO dto) {
+        entity.setTitle(dto.getTitle());
+        entity.setDescription(dto.getDescription());
+        entity.setStatus(dto.getStatus() != null ? dto.getStatus() : "DRAFT");
+        entity.setVersion(dto.getVersion() != null ? dto.getVersion() : "1.0");
+        entity.setOrderIndex(dto.getOrderIndex() != null ? dto.getOrderIndex() : 0);
+
+        // Map Type (Enum)
+        if (dto.getType() != null) {
+            try {
+                entity.setType(DeliverableType.valueOf(dto.getType().toUpperCase()));
+            } catch (Exception e) {
+                // Handle invalid type or default
+                entity.setType(DeliverableType.TOPIC);
+            }
+        }
+
+        // Map Project
+        if (dto.getProjectId() != null) {
+            Project project = projectRepository.findById(dto.getProjectId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+            entity.setProject(project);
+        }
+
+        // Map Creator
+        if (dto.getCreatedById() != null) {
+            User user = userRepository.findById(dto.getCreatedById())
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            entity.setCreatedBy(user);
+        }
+
+        return mapToDTO(deliverableRepository.save(entity));
     }
 
     private DeliverableDTO mapToDTO(Deliverable d) {
         return DeliverableDTO.builder()
                 .id(d.getId())
-                .projectId(d.getProject().getId())
-                .parentId(d.getParent() != null ? d.getParent().getId() : null)
                 .title(d.getTitle())
                 .description(d.getDescription())
-                .type(d.getType())
+                .type(d.getType() != null ? d.getType().name().toLowerCase() : null)
                 .status(d.getStatus())
                 .version(d.getVersion())
                 .orderIndex(d.getOrderIndex())
+                .projectId(d.getProject() != null ? d.getProject().getId() : null)
                 .createdById(d.getCreatedBy() != null ? d.getCreatedBy().getId() : null)
-                .createdByName(d.getCreatedBy() != null ? d.getCreatedBy().getUsername() : null)
+                .createdByName(d.getCreatedBy() != null ? d.getCreatedBy().getUsername() : null) // or getFirstName
                 .createdAt(d.getCreatedAt())
                 .updatedAt(d.getUpdatedAt())
                 .build();
     }
+
+
+    public List<DeliverableDTO> getProjectDeliverable() {
+        return deliverableRepository.findAll()
+                .stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
 }

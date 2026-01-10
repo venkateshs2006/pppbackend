@@ -18,4 +18,8 @@ public class OrganizationDTO {
     private String stripeCustomerId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String contactPersonName;
+    private String contactEmail;
+    private long projectsCount;
+    private long activeProjectsCount;
 }

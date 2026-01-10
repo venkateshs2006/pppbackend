@@ -6,7 +6,10 @@ import lombok.Data;
 @Data
 @Builder
 public class ConsultantInfoDTO {
+    private Long userId;
     private String name;
     private String role;
     private String avatar;
+    private String phoneNumber;
+    private String jobTitle;
 }

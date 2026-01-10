@@ -9,7 +9,7 @@ public class ProjectStatusConverter implements AttributeConverter<ProjectStatus,
 
     @Override
     public String convertToDatabaseColumn(ProjectStatus attribute) {
-        return attribute == null ? null : attribute.getDbValue();
+        return attribute == null ? null : attribute.toString();
     }
 
     @Override

@@ -10,6 +10,9 @@ public class TicketCommentDTO {
     private UUID id;
     private UUID ticketId;
     private Long userId;
+    private String name;
+    private String role;
+    private String avatar;
     private String comment;
     private Boolean isInternal;
     private OffsetDateTime createdAt;

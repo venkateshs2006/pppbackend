@@ -10,4 +10,7 @@ public class TeamMemberSummaryDTO {
     private String role;
     private String avatar;
     private String email;
+    private String phoneNumber;
+    private String jobTitle;
+    private Long userId;
 }

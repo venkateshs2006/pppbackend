@@ -2,6 +2,7 @@ package com.java.ppp.pppbackend.service;
 
 
 import com.java.ppp.pppbackend.dto.UserDTO;
+import com.java.ppp.pppbackend.entity.Role;
 import com.java.ppp.pppbackend.entity.User;
 import com.java.ppp.pppbackend.exception.BadRequestException;
 import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
@@ -16,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,19 +45,30 @@ public class UserService {
             throw new BadRequestException("Email already exists");
         }
 
-        User user = User.builder()
-                .username(userDTO.getUsername())
-                .email(userDTO.getEmail())
-                .firstName(userDTO.getFirstName())
-                .lastName(userDTO.getLastName())
-                .phoneNumber(userDTO.getPhoneNumber())
-                .bio(userDTO.getBio())
-                .department(userDTO.getDepartment())
-                .jobTitle(userDTO.getJobTitle())
-                .isActive(true)
-                .isEmailVerified(false)
-                .createdAt(Timestamp.valueOf(LocalDateTime.now()))
-                .build();
+        User user = new User();
+
+        // 1. Map basic fields
+        user.setUsername(userDTO.getUsername());
+        user.setEmail(userDTO.getEmail());
+        user.setFirstName(userDTO.getFirstName());
+        user.setLastName(userDTO.getLastName());
+        user.setPhoneNumber(userDTO.getPhoneNumber());
+        user.setJobTitle(userDTO.getJobTitle());
+
+
+        // 2. CRITICAL FIX: Set and Encode the Password
+        if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+        } else {
+            // Optional: Set a default temporary password if none provided
+            // user.setPassword(passwordEncoder.encode("Temp@123"));
+            throw new IllegalArgumentException("Password cannot be empty");
+        }
+
+        // 3. Set defaults
+        user.setIsActive(true);
+        user.setCreatedAt(Timestamp.valueOf(LocalDateTime.now()));
+        user.setUpdatedAt(Timestamp.valueOf(LocalDateTime.now()));
 
         User saved = userRepository.save(user);
         return mapToDTO(saved);
@@ -212,15 +225,17 @@ public class UserService {
         return UserDTO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
+                .fullName(user.getFirstName()+user.getLastName())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .phoneNumber(user.getPhoneNumber())
                 .bio(user.getBio())
-                .avatarUrl(user.getProfileImageUrl())
+                .avatarUrl(user.getProfileImageUrl()==null?user.getFirstName().substring(0,1):user.getProfileImageUrl())
                 .department(user.getDepartment())
                 .jobTitle(user.getJobTitle())
                 .isActive(user.getIsActive())
+                .roles(user.getRoles().stream().map(r->r.getName().getDbValue()).collect(Collectors.toList()))
                 .isEmailVerified(user.getIsEmailVerified())
                 .lastLoginAt(user.getLastLogin())
                 .createdAt(user.getCreatedAt())
