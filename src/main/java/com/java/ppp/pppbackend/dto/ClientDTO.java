@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
-public class OrganizationDTO {
+public class ClientDTO {
     private Long id;
     private String name;
     private String description;

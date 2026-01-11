@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     private final ProjectRepository projectRepository;
-    private final OrganizationRepository organizationRepository;
+    private final ClientRepository clientRepository;
     private final DeliverableRepository deliverableRepository;
     private final TicketRepository ticketRepository;
 
@@ -84,9 +84,9 @@ public class DashboardService {
     // =========================================================================
     private DashboardStatsDTO calculateStats(List<Project> projects, boolean isSuperAdmin, List<UUID> projectIds) {
         long totalOrgs = isSuperAdmin
-                ? organizationRepository.count()
+                ? clientRepository.count()
                 : projects.stream()
-                .map(p -> p.getOrganization() != null ? p.getOrganization().getId() : null) // Get ID from the object
+                .map(p -> p.getClient() != null ? p.getClient().getId() : null) // Get ID from the object
                 .filter(Objects::nonNull) // Safety check to remove nulls
                 .distinct()
                 .count();
@@ -143,7 +143,7 @@ public class DashboardService {
 
     private RecentProjectDTO mapToRecentProjectDTO(Project p) {
         // Assuming your Organization Entity has a name, otherwise placeholders
-        String clientName = p.getOrganization() != null ? p.getOrganization().getName() : "Unknown Client";
+        String clientName = p.getClient() != null ? p.getClient().getName() : "Unknown Client";
 
         return RecentProjectDTO.builder()
                 .id(p.getId().toString())

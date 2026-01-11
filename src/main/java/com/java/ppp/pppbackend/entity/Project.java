@@ -77,9 +77,9 @@ public class Project {
     // --- Relationships ---
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "organization_id")
+    @JoinColumn(name = "client_id")
     @ToString.Exclude
-    private Organization organization;
+    private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_manager_id")

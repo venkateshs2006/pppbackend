@@ -10,12 +10,12 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "organizations")
+@Table(name = "clients")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Organization {
+public class Client {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,6 +42,10 @@ public class Organization {
 
     @Column(name = "stripe_customer_id")
     private String stripeCustomerId;
+
+    @Column(name = "stripe_customer_name")
+    private String stripeCustomerName;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

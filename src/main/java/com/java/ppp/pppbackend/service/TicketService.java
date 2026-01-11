@@ -289,7 +289,7 @@ public class TicketService {
             dto.setProject(projectInfo);
 
             // 3. Map Client (Derived from Project -> Organization)
-            Organization org = ticket.getProject().getOrganization();
+            Client org = ticket.getProject().getClient();
             if (org != null) {
                 String initial = (org.getName() != null && !org.getName().isEmpty())
                         ? org.getName().substring(0, 1).toUpperCase() : "C";

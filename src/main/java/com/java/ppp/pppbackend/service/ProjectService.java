@@ -21,7 +21,7 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final DeliverableRepository deliverableRepository;
-    private final OrganizationRepository organizationRepository;
+    private final ClientRepository clientRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -175,9 +175,9 @@ public class ProjectService {
 
         // Map Relationships
         if (dto.getClientId() != null) {
-                Organization org = organizationRepository.findById(Long.valueOf(dto.getClientId()))
+                Client org = clientRepository.findById(Long.valueOf(dto.getClientId()))
                     .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
-            project.setOrganization(org);
+            project.setClient(org);
         }
 
         if (dto.getProjectManagerId() != null) {
@@ -246,12 +246,12 @@ public class ProjectService {
                 .endDate(p.getEndDate())
                 .budget(p.getBudget())
                 .spent(p.getSpent())
-                .client(mapClient(p.getOrganization()))
+                .client(mapClient(p.getClient()))
                 .consultant(mapConsultant(p.getProjectManager()))
                 .build();
     }
 
-    private ClientInfoDTO mapClient(Organization org) {
+    private ClientInfoDTO mapClient(Client org) {
         if (org == null) return null;
         return ClientInfoDTO.builder()
                 .organization(org.getName())
@@ -275,10 +275,10 @@ public class ProjectService {
     }
 
     private ClientInfoDTO mapClientInfo(Project p) {
-        if (p.getOrganization() == null) return null;
+        if (p.getClient() == null) return null;
         return ClientInfoDTO.builder()
-                .organization(p.getOrganization().getName())
-                .organizationEn(p.getOrganization().getName()) // Placeholder
+                .organization(p.getClient().getName())
+                .organizationEn(p.getClient().getName()) // Placeholder
                 .name("Admin Contact") // Ideally fetch from Org Contact Person
                 .email("admin@org.com")
                 .avatar("OR")

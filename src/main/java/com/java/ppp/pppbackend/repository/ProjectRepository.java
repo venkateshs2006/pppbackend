@@ -21,35 +21,35 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     @Query("SELECT p FROM Project p WHERE p.projectManager.id = :userId")
     List<Project> findByMemberId(@Param("userId") Long userId, Pageable pageable);
     // Role-based Queries
-    List<Project> findByOrganizationIdOrderByUpdatedAtDesc(String orgId, Pageable pageable);
+    List<Project> findByClientIdOrderByUpdatedAtDesc(String orgId, Pageable pageable);
 
     @Query("SELECT p FROM Project p WHERE p.projectManager.id = :userId")
     List<Project> findByMemberIdOrderByUpdatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
     // Calculate average progress
-    @Query("SELECT AVG(p.progress) FROM Project p WHERE p.organization.id = :orgId")
+    @Query("SELECT AVG(p.progress) FROM Project p WHERE p.client.id = :orgId")
     Double getAverageProgressByOrganization(@Param("orgId") String orgId);
 
     List<Project> findByProjectManagerId(Long projectManagerId);
     // 1. For Organization Admins: Fetch all projects in their specific Org
-    List<Project> findByOrganizationId(Long organizationId);
+    List<Project> findByClientId(Long clientId);
 
     // 2. For Consultants/Clients: Fetch projects where they are a member
     // Assumes you have a ProjectMember entity linking Project and User
     @Query("SELECT p FROM Project p JOIN p.members m WHERE m.user.id = :userId")
     List<Project> findProjectsByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT COALESCE(SUM(p.budget), 0) FROM Project p WHERE p.organization.id = :orgId")
+    @Query("SELECT COALESCE(SUM(p.budget), 0) FROM Project p WHERE p.client.id = :orgId")
     BigDecimal calculateTotalbudgetByOrgId(@Param("orgId") Long orgId);
     @Query("SELECT COALESCE(SUM(p.budget), 0) FROM Project p")
     BigDecimal calculateTotalBudget();
 
-    // 1. Count ALL projects for a specific organization
-    long countByOrganizationId(Long organizationId);
+    // 1. Count ALL projects for a specific client
+    long countByClientId(Long clientId);
 
-    // 2. Count projects by organization AND status
+    // 2. Count projects by client AND status
     // Note: If your Project entity uses an Enum for status, change 'String' to your Enum type (e.g., ProjectStatus)
-    long countByOrganizationIdAndStatus(Long organizationId, ProjectStatus status);
+    long countByClientIdAndStatus(Long clientId, ProjectStatus status);
 
     @Query("SELECT COUNT(pm) FROM ProjectMember pm WHERE pm.user.id = :userId")
     long countUserProjects(@Param("userId") Long userId);
