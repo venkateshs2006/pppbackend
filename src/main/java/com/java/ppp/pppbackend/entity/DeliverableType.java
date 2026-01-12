@@ -1,32 +1,27 @@
 package com.java.ppp.pppbackend.entity;
-
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum DeliverableType {
-    GUIDE("guide"),
-    TOPIC("topic"),
-    POLICY("policy"),
-    PROCEDURE("procedure"),
-    TEMPLATE("template"),
-    REPORT("report");
+    // Keep your constants UPPERCASE (Standard Java Convention)
+    GUIDE, TOPIC, POLICY, PROCEDURE, TEMPLATE;
 
-    private final String dbValue;
-
-    DeliverableType(String dbValue) {
-        this.dbValue = dbValue;
-    }
-
-    public static DeliverableType fromDbValue(String dbValue) {
-        for (DeliverableType type : DeliverableType.values()) {
-            if (type.dbValue.equalsIgnoreCase(dbValue)) {
-                return type;
-            }
+    // This allows Jackson to accept "Policy", "policy", or "POLICY"
+    @JsonCreator
+    public static DeliverableType fromString(String value) {
+        if (value == null) return null;
+        try {
+            return DeliverableType.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // Handle unknown values gracefully or throw better error
+            throw new IllegalArgumentException("Unknown DeliverableType: " + value);
         }
-        throw new IllegalArgumentException("Unknown deliverable type: " + dbValue);
     }
 
+    // Optional: This controls how it looks when sent BACK to the frontend
     @JsonValue
-    public String getDbValue() {
-        return dbValue;
+    public String toValue() {
+        return this.name(); // Returns "POLICY"
+        // OR return this.name().toLowerCase(); // Returns "policy"
     }
 }

@@ -47,7 +47,8 @@ application:
       expiration: 86400000
       refresh-token:
         expiration: 604800000
-
+file:
+  upload-dir: ./uploads/deliverables
 # Logging
 logging:
   level:

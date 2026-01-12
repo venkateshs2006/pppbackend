@@ -112,8 +112,8 @@ public class DashboardService {
             } else {
                 // Assuming Deliverable status is also an Enum? If so, use DeliverableStatus.COMPLETED
                 // If Deliverable status is a String, keep it as "COMPLETED".
-                completedTasks = deliverableRepository.countByStatus("COMPLETED");
-                pendingApprovals = deliverableRepository.countByStatus("PENDING_APPROVAL");
+                completedTasks = deliverableRepository.countByStatus(DeliverableStatus.COMPLETED);
+                pendingApprovals = deliverableRepository.countByStatus(DeliverableStatus.PENDING_APPROVAL);
 
                 // HERE IS THE FIX FOR THE 500 ERROR:
                 openTickets = ticketRepository.countByStatus(TicketStatus.OPEN);
@@ -163,7 +163,7 @@ public class DashboardService {
                 .title(d.getTitle())
                 .titleEn(d.getTitle())
                 .type("Document") // Placeholder or d.getType()
-                .status(d.getStatus())
+                .status(d.getStatus().toValue())
                 .projectName(d.getProject().getTitleAr())
                 .projectNameEn(d.getProject().getTitleEn())
                 .version(d.getVersion() != null ? "v" + d.getVersion() : "v1.0")

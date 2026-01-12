@@ -219,12 +219,12 @@ public class ProjectService {
 
     }
 
-    public List<DeliverableDTO> getProjectDeliverables(UUID projectId) {
+    public List<DeliverableDto> getProjectDeliverables(UUID projectId) {
         // Use the repository method we added earlier
         List<Deliverable> deliverables = deliverableRepository.findByProjectId(projectId);
 
         return deliverables.stream()
-                .map(d -> DeliverableDTO.builder()
+                .map(d -> DeliverableDto.builder()
                         .id(d.getId())
                         .title(d.getTitle()) // or getTitle()
                         .status(d.getStatus()) // Ensure this matches your Enum/String

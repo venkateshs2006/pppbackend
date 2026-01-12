@@ -43,7 +43,7 @@ public class ProjectController {
 
 
     @GetMapping("/{id}/deliverables")
-    public ResponseEntity<List<DeliverableDTO>> getProjectDeliverables(@PathVariable UUID id) {
+    public ResponseEntity<List<DeliverableDto>> getProjectDeliverables(@PathVariable UUID id) {
         return ResponseEntity.ok(projectService.getProjectDeliverables(id));
     }
 

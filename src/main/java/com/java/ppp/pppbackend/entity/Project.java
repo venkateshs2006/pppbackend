@@ -8,6 +8,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -91,8 +92,12 @@ public class Project {
     private List<ProjectMember> members;
 
     // This stores the list of strings in a separate joined table automatically
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL)
-    private List<Deliverable> deliverables;
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @Builder.Default
+    private List<Deliverable> deliverables = new ArrayList<>();;
+
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
