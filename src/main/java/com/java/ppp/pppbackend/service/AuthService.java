@@ -87,6 +87,7 @@ public class AuthService {
                 .expiresIn(86400L)
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .id(user.getId())
                 .role(user.getRoles().iterator().next().getName().toString().toLowerCase().toString())
                 .build();
     }
@@ -121,6 +122,7 @@ public class AuthService {
                 .tokenType("Bearer")
                 .expiresIn(86400L)
                 .username(user.getUsername())
+                .id(user.getId())
                 .email(user.getEmail())
                 .role(user.getRoles().iterator().next().getName().toString().toLowerCase().toString())
                 .build();
@@ -147,6 +149,7 @@ public class AuthService {
                 .tokenType("Bearer")
                 .expiresIn(86400L)
                 .username(user.getUsername())
+                .id(user.getId())
                 .email(user.getEmail())
                 .role(user.getRoles().iterator().next().getName().toString().toLowerCase().toString())
                 .build();

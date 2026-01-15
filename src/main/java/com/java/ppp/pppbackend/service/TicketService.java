@@ -4,10 +4,9 @@ package com.java.ppp.pppbackend.service;
 import com.java.ppp.pppbackend.dto.TicketCommentDTO;
 import com.java.ppp.pppbackend.dto.TicketDTO;
 import com.java.ppp.pppbackend.entity.*;
-import com.java.ppp.pppbackend.repository.TicketAttachmentRepository;
-import com.java.ppp.pppbackend.repository.TicketCommentRepository;
-import com.java.ppp.pppbackend.repository.TicketRepository;
-import com.java.ppp.pppbackend.repository.UserRepository;
+import com.java.ppp.pppbackend.exception.BadRequestException;
+import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
+import com.java.ppp.pppbackend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,15 +29,46 @@ public class TicketService {
     private TicketAttachmentRepository ticketAttachmentRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private ProjectRepository projectRepository;
     // --- Ticket Operations ---
     private static final Set<String> ALLOWED_APPROVER_ROLES = Set.of("admin", "lead_consultant");
     public TicketDTO createTicket(TicketDTO dto) {
         Ticket ticket = new Ticket();
-        BeanUtils.copyProperties(dto, ticket);
+// 1. Copy simple fields (title, description, category, etc.)
+        // We exclude complex fields to handle them manually
+        BeanUtils.copyProperties(dto, ticket, "project", "assignedTo", "status", "priority");
+
+        // 2. Handle Enums (Status & Priority)
+        // DTO has them as Enums now, so we can set them directly if not null
+        ticket.setStatus(dto.getStatus() != null ? dto.getStatus() : TicketStatus.OPEN);
+        ticket.setPriority(dto.getPriority() != null ? dto.getPriority() : TicketPriority.MEDIUM);
+
+        // 3. Handle Project Relationship
+        if (dto.getProject() != null && dto.getProject().getId() != null) {
+            Project project = projectRepository.findById(dto.getProject().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + dto.getProject().getId()));
+            ticket.setProject(project);
+        }
+
+        // 4. Handle Assigned User Relationship
+        if (dto.getAssignedTo() != null && dto.getAssignedTo().getId() != null) {
+            try {
+                Long userId = Long.parseLong(dto.getAssignedTo().getId());
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+                ticket.setAssignedTo(user);
+            } catch (NumberFormatException e) {
+                throw new BadRequestException("Invalid User ID format: " + dto.getAssignedTo().getId());
+            }
+        }
+
+        // 5. Save Entity
         ticket = ticketRepository.save(ticket);
-        BeanUtils.copyProperties(ticket, dto);
-        dto.setId(ticket.getId());
-        return dto;
+
+        // 6. Convert saved Entity back to DTO
+        // (Don't use BeanUtils here either for complex types, reuse your mapper or set manually)
+        return mapToDTO(ticket);
     }
 
     public List<TicketDTO> getTicketsByProject(UUID projectId) {
@@ -257,100 +287,101 @@ public class TicketService {
             return dto;
         }).collect(Collectors.toList());
     }
+    // --- Mapper (The FIX is here) ---
+
     private TicketDTO mapToDTO(Ticket ticket) {
         TicketDTO dto = new TicketDTO();
 
         // 1. Basic Fields
         dto.setId(ticket.getId());
         dto.setTitle(ticket.getTitle());
-        dto.setTitleEn(ticket.getTitle());
+        dto.setTitleEn(ticket.getTitle()); // Or specific field
         dto.setDescription(ticket.getDescription());
-        dto.setDescriptionEn(ticket.getDescription());
+        dto.setDescriptionEn(ticket.getDescription()); // Or specific field
 
-        // Convert Enums to Lowercase for UI
-        dto.setStatus(ticket.getStatus().name().toLowerCase());
-        dto.setPriority(ticket.getPriority().name().toLowerCase());
+        dto.setStatus(ticket.getStatus() != null ? ticket.getStatus() : TicketStatus.OPEN);
+        dto.setPriority(ticket.getPriority() != null ? ticket.getPriority() : TicketPriority.MEDIUM);
 
         dto.setCategory(ticket.getCategory());
         dto.setCategoryEn(ticket.getCategory());
 
-        dto.setCreatedAt(ticket.getCreatedAt().toString());
-        dto.setUpdatedAt(ticket.getUpdatedAt().toString());
-        dto.setDueDate(ticket.getDueDate() != null ? ticket.getDueDate().toString() : null);
-
+        if (ticket.getCreatedAt() != null) dto.setCreatedAt(ticket.getCreatedAt().toString());
+        if (ticket.getUpdatedAt() != null) dto.setUpdatedAt(ticket.getUpdatedAt().toString());
+        if (ticket.getDueDate() != null) dto.setDueDate(ticket.getDueDate().toString());
 
         // 2. Map Project
         if (ticket.getProject() != null) {
             TicketDTO.ProjectInfo projectInfo = TicketDTO.ProjectInfo.builder()
                     .id(ticket.getProject().getId())
-                    .name(ticket.getProject().getTitleAr()) // Assuming Ar title maps to 'name'
+                    .name(ticket.getProject().getTitleAr())
                     .nameEn(ticket.getProject().getTitleEn())
                     .build();
             dto.setProject(projectInfo);
 
-            // 3. Map Client (Derived from Project -> Organization)
+            // Map Client from Project
             Client org = ticket.getProject().getClient();
             if (org != null) {
-                String initial = (org.getName() != null && !org.getName().isEmpty())
-                        ? org.getName().substring(0, 1).toUpperCase() : "C";
-
                 TicketDTO.ClientInfo clientInfo = TicketDTO.ClientInfo.builder()
-                        .name(org.getName())         // Using Org Name as Client Name fallback
-                        .nameEn(org.getName())       // Update if you have specific client user columns
+                        .name(org.getName())
                         .organization(org.getName())
-                        .organizationEn(org.getName())
-                        .avatar(initial)
+                        .avatar(org.getName().substring(0, 1).toUpperCase())
                         .build();
                 dto.setClient(clientInfo);
             }
         }
 
-        // Handle null client to prevent frontend crash
-        if (dto.getClient() == null) {
-            dto.setClient(new TicketDTO.ClientInfo("Unknown", "Unknown", "N/A", "N/A", "?"));
-        }
-
-        // 4. Map Assigned User
+        // 3. Map Assigned User (SAFE MAPPING)
         if (ticket.getAssignedTo() != null) {
             User user = ticket.getAssignedTo();
-            String initial = (user.getFirstName()+user.getLastName()).substring(0, 1).toUpperCase();
+            String fullName = (user.getFirstName() != null ? user.getFirstName() : "") + " " + (user.getLastName() != null ? user.getLastName() : "");
+            String initial = (user.getFirstName() != null && !user.getFirstName().isEmpty()) ? user.getFirstName().substring(0, 1) : "U";
+
+            // ✅ FIX: Safe Role Access (Avoids .get() on empty Optional)
+            String roleName = "Member"; // Default
+            if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+                roleName = user.getRoles().iterator().next().getName().toString();
+            }
 
             TicketDTO.AssignedInfo assignedInfo = TicketDTO.AssignedInfo.builder()
                     .id(String.valueOf(user.getId()))
-                    .name((user.getFirstName()+user.getLastName()))
-                    .role(user.getRoles().stream().findFirst().get().getName().toString())
+                    .name(fullName.trim())
+                    .role(roleName)
                     .avatar(initial)
                     .build();
             dto.setAssignedTo(assignedInfo);
         }
 
-        // 5. Map Responses
+        // 4. Map Responses
         if (ticket.getResponses() != null) {
             List<TicketDTO.TicketResponseDTO> responses = ticket.getResponses().stream().map(res -> {
-                User author = ticket.getAssignedTo(); // Assuming 'user' is the author of the comment
-                String authorInitial = author.getFirstName().substring(0, 1).toUpperCase();
-
-                TicketDTO.TicketResponseDTO.ResponseAuthor authorInfo = TicketDTO.TicketResponseDTO.ResponseAuthor.builder()
-                        .name(author.getFirstName()+" "+author.getLastName())
-                        .role(author.getRoles().stream().findFirst().get().getName().toString())
-                        .avatar(authorInitial)
-                        .build();
-
-                return TicketDTO.TicketResponseDTO.builder()
+                TicketDTO.TicketResponseDTO.TicketResponseDTOBuilder responseBuilder = TicketDTO.TicketResponseDTO.builder()
                         .id(String.valueOf(res.getId()))
                         .message(res.getComment())
-                        .messageEn(res.getComment()) // Or translate if you have it
-                        .timestamp(res.getCreatedAt().toString())
-                        .attachments(null)
-                        .author(authorInfo)
-                        .build();
-            }).collect(Collectors.toList());
+                        .timestamp(res.getCreatedAt().toString());
 
+                // Fetch User info manually if Comment has userId
+                if (res.getUserId() != null) {
+                    userRepository.findById(res.getUserId()).ifPresent(commentAuthor -> {
+                        String authorName = commentAuthor.getFirstName() + " " + commentAuthor.getLastName();
+                        String authorRole = (commentAuthor.getRoles() != null && !commentAuthor.getRoles().isEmpty())
+                                ? commentAuthor.getRoles().iterator().next().getName().toString()
+                                : "User";
+
+                        responseBuilder.author(TicketDTO.TicketResponseDTO.ResponseAuthor.builder()
+                                .name(authorName)
+                                .role(authorRole)
+                                .avatar(commentAuthor.getFirstName().substring(0,1))
+                                .build());
+                    });
+                }
+
+                return responseBuilder.build();
+            }).collect(Collectors.toList());
             dto.setResponses(responses);
-        } else {
-            dto.setResponses(new ArrayList<>());
         }
-        dto.setTags(Arrays.asList("Tag1", "Tag2"));
+
         return dto;
     }
+
+
 }

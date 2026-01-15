@@ -59,6 +59,7 @@ public class ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
         return mapToProjectResponseDTO(project);
     }
+
     @Transactional
     public List<TeamMemberSummaryDTO> getProjectMembers(UUID id) {
         Project project = projectRepository.findById(id)
@@ -248,6 +249,7 @@ public class ProjectService {
                 .spent(p.getSpent())
                 .client(mapClient(p.getClient()))
                 .consultant(mapConsultant(p.getProjectManager()))
+                .team(mapTeamMembers(p.getMembers()))
                 .build();
     }
 
@@ -256,8 +258,8 @@ public class ProjectService {
         return ClientInfoDTO.builder()
                 .organization(org.getName())
                 .organizationEn(org.getName()) // Use name as fallback or add nameEn to Org entity
-                .name("N/A") // Ideally fetch contact person
-                .email("contact@org.com")
+                .name(org.getName()) // Ideally fetch contact person
+                .email(org.getStripeCustomerId())
                 .avatar(org.getName().substring(0, 2).toUpperCase())
                 .build();
     }

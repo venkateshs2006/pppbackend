@@ -119,8 +119,8 @@ public class DashboardService {
                 openTickets = ticketRepository.countByStatus(TicketStatus.OPEN);
             }
         } else {
-            completedTasks = deliverableRepository.countByStatusAndProjectIdIn("COMPLETED", projectIds);
-            pendingApprovals = deliverableRepository.countByStatusAndProjectIdIn("PENDING_APPROVAL", projectIds);
+            completedTasks = deliverableRepository.countByStatusAndProjectIdIn(DeliverableStatus.COMPLETED, projectIds);
+            pendingApprovals = deliverableRepository.countByStatusAndProjectIdIn(DeliverableStatus.PENDING_APPROVAL, projectIds);
 
             // HERE IS THE FIX FOR THE 500 ERROR:
             openTickets = ticketRepository.countByStatusAndProjectIdIn(TicketStatus.OPEN, projectIds);

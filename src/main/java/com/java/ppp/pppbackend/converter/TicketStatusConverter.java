@@ -13,6 +13,6 @@ public class TicketStatusConverter implements AttributeConverter<TicketStatus, S
 
     @Override
     public TicketStatus convertToEntityAttribute(String dbData) {
-        return dbData == null ? null : TicketStatus.fromDbValue(dbData);
+        return dbData == null ? null : TicketStatus.fromString(dbData);
     }
 }

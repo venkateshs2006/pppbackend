@@ -13,6 +13,6 @@ public class TicketPriorityConverter implements AttributeConverter<TicketPriorit
 
     @Override
     public TicketPriority convertToEntityAttribute(String dbData) {
-        return dbData == null ? null : TicketPriority.fromDbValue(dbData);
+        return dbData == null ? null : TicketPriority.fromString(dbData);
     }
 }

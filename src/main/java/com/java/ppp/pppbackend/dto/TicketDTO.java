@@ -1,5 +1,7 @@
 package com.java.ppp.pppbackend.dto;
 
+import com.java.ppp.pppbackend.entity.TicketPriority;
+import com.java.ppp.pppbackend.entity.TicketStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,8 +23,8 @@ public class TicketDTO {
     private String descriptionEn;
 
     // Enum values as lowercase strings: 'open', 'in_progress', etc.
-    private String status;
-    private String priority;
+    private TicketStatus status;
+    private TicketPriority priority;
 
     private String category;
     private String categoryEn;

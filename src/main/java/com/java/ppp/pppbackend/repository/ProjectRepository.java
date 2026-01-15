@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -53,4 +54,12 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 
     @Query("SELECT COUNT(pm) FROM ProjectMember pm WHERE pm.user.id = :userId")
     long countUserProjects(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.createdAt >= :startDate")
+    long countNewProjectsSince(@Param("startDate") LocalDateTime startDate);
+
+    @Query("SELECT p.status, COUNT(p) FROM Project p GROUP BY p.status")
+    List<Object[]> countProjectsByStatus();
+
+
 }

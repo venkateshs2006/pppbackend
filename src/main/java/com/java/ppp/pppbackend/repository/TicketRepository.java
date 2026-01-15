@@ -4,6 +4,8 @@ import com.java.ppp.pppbackend.entity.Ticket;
 import com.java.ppp.pppbackend.entity.TicketStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,12 +19,19 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
     List<Ticket> findByProjectId(UUID projectId);
     List<Ticket> findTop5ByOrderByCreatedAtDesc();
     List<Ticket> findTop5ByProjectIdInOrderByCreatedAtDesc(List<UUID> projectIds);
-    long countByStatusAndProjectIdIn(String status, List<UUID> projectIds);
+
     long countByStatus(TicketStatus status);
     long countByStatusAndProjectIdIn(TicketStatus status, List<UUID> projectIds);
     // Spring Data JPA automatically understands "ProjectId" maps to "project.id"
     long countByProjectId(UUID projectId);
 
     long countByProjectIdAndStatus(UUID projectId, TicketStatus status);
+    @Query("SELECT t.priority, COUNT(t) FROM Ticket t WHERE t.project.id IN :projectIds GROUP BY t.priority")
+    List<Object[]> countByPriorityForProjects(@Param("projectIds") List<UUID> projectIds);
+
+    @Query("SELECT t.status, COUNT(t) FROM Ticket t WHERE t.project.id IN :projectIds GROUP BY t.status")
+    List<Object[]> countByStatusForProjects(@Param("projectIds") List<UUID> projectIds);
+
+    long countByProjectIdIn(List<UUID> projectIds);
 
 }

@@ -27,11 +27,12 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, UUID> 
     List<Deliverable> findTop5ByOrderByUpdatedAtDesc();
     List<Deliverable> findTop5ByProjectIdInOrderByUpdatedAtDesc(List<UUID> projectIds);
 
-    long countByStatusAndProjectIdIn(String status, List<UUID> projectIds);
+    long countByStatusAndProjectIdIn(DeliverableStatus status, List<UUID> projectIds);
 
 
     // Count methods
     long countByProjectId(UUID projectId);
+    long countByProjectIdIn(List<UUID> projectIds);
 
     // Check if your Deliverable entity uses String or Enum for status.
     // If String:
@@ -44,4 +45,14 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, UUID> 
 
     // Check if all deliverables for a project are closed
     boolean existsByProjectIdAndStatusNot(UUID projectId, DeliverableStatus status);
+
+    @Query("SELECT d.status, COUNT(d) FROM Deliverable d WHERE d.project.id IN :projectIds GROUP BY d.status")
+    List<Object[]> countByStatusForProjects(@Param("projectIds") List<UUID> projectIds);
+
+    @Query("SELECT COUNT(d) FROM Deliverable d WHERE d.status = 'APPROVED' AND d.project.id IN :projectIds")
+    long countApprovedForProjects(@Param("projectIds") List<UUID> projectIds);
+
+
+
+
 }
