@@ -34,4 +34,6 @@ public class ProjectResponseDTO {
     private long completedTasks;
     private long tickets;
     private long openTickets;
+    private long completedProjects;
+    private long activeProjects;
 }

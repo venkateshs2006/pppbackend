@@ -234,6 +234,10 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
     private ProjectResponseDTO mapToProjectResponseDTO(Project p) {
+        List<Deliverable> deliverableList=p.getDeliverables();
+        long deliverables=deliverableList.size();
+        long completedDeliverables=deliverableList.stream().filter(d->d.getStatus()==DeliverableStatus.COMPLETED).count();
+
         return ProjectResponseDTO.builder()
                 .id(p.getId().toString())
                 .title(p.getTitleAr())
@@ -250,6 +254,8 @@ public class ProjectService {
                 .client(mapClient(p.getClient()))
                 .consultant(mapConsultant(p.getProjectManager()))
                 .team(mapTeamMembers(p.getMembers()))
+                .deliverables(deliverables)
+                .completedDeliverables(completedDeliverables)
                 .build();
     }
 

@@ -92,7 +92,7 @@ public class DashboardService {
                 .count();
 
         long totalProjects = projects.size();
-        long activeProjects = projects.stream().filter(p -> "ACTIVE".equalsIgnoreCase(p.getStatus().getDbValue())).count();
+        long activeProjects = projects.stream().filter(p -> (p.getStatus()==ProjectStatus.ACTIVE||ProjectStatus.PLANNING==p.getStatus())).count();
 
         // Safe division for progress
         double overallProgress = 0.0;
