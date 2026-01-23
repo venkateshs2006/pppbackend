@@ -11,7 +11,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -144,22 +147,73 @@ public class ReportsService {
         }).collect(Collectors.toList());
     }
 
+//    private List<ReportsDashboardDTO.MonthlyTrendDTO> buildMonthlyTrends(List<UUID> projectIds) {
+//        // Placeholder for monthly trends - implement actual logic if needed
+//        List<ReportsDashboardDTO.MonthlyTrendDTO> trends = new ArrayList<>();
+//        LocalDateTime now = LocalDateTime.now();
+//        for (int i = 5; i >= 0; i--) {
+//            LocalDateTime date = now.minusMonths(i);
+//            trends.add(ReportsDashboardDTO.MonthlyTrendDTO.builder()
+//                    .month(date.getMonth().getDisplayName(TextStyle.FULL, new Locale("ar")))
+//                    .monthEn(date.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+//                    .projects(new Random().nextInt(5))
+//                    .deliverables(new Random().nextInt(15))
+//                    .tickets(new Random().nextInt(10))
+//                    .build());
+//        }
+//        return trends;
+//    }
+
     private List<ReportsDashboardDTO.MonthlyTrendDTO> buildMonthlyTrends(List<UUID> projectIds) {
-        // Placeholder for monthly trends - implement actual logic if needed
         List<ReportsDashboardDTO.MonthlyTrendDTO> trends = new ArrayList<>();
-        LocalDateTime now = LocalDateTime.now();
+        YearMonth currentMonth = YearMonth.now();
+
+        // Loop for the last 6 months (including current)
         for (int i = 5; i >= 0; i--) {
-            LocalDateTime date = now.minusMonths(i);
+            YearMonth targetMonth = currentMonth.minusMonths(i);
+
+            // Calculate Start and End of the month
+            LocalDateTime startDateTime = targetMonth.atDay(1).atStartOfDay();
+            LocalDateTime endDateTime = targetMonth.atEndOfMonth().atTime(LocalTime.MAX);
+
+            // Convert to Timestamp for Entities that use java.sql.Timestamp (Ticket, Deliverable)
+            Timestamp startTimestamp = Timestamp.valueOf(startDateTime);
+            Timestamp endTimestamp = Timestamp.valueOf(endDateTime);
+
+            // 1. Fetch Actual Data
+            // Projects: Count created in this month
+            long newProjects = projectRepository.countCreatedBetween(projectIds, startDateTime, endDateTime);
+
+            // 2. Deliverables: ✅ FIX - Pass LocalDateTime (Entity uses LocalDateTime)
+            long completedDeliverables = deliverableRepository.countByStatusAndDate(
+                    projectIds,
+                    DeliverableStatus.APPROVED,
+                    startDateTime, // Passing LocalDateTime
+                    endDateTime    // Passing LocalDateTime
+            );
+
+            // 3. Tickets: ✅ FIX - Pass Timestamp (Entity uses Timestamp)
+            long resolvedTickets = ticketRepository.countByStatusAndDate(
+                    projectIds,
+                    TicketStatus.RESOLVED,
+                    startTimestamp, // Passing Timestamp
+                    endTimestamp    // Passing Timestamp
+            );
+
+
+
+            // 2. Build DTO
             trends.add(ReportsDashboardDTO.MonthlyTrendDTO.builder()
-                    .month(date.getMonth().getDisplayName(TextStyle.FULL, new Locale("ar")))
-                    .monthEn(date.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
-                    .projects(new Random().nextInt(5))
-                    .deliverables(new Random().nextInt(15))
-                    .tickets(new Random().nextInt(10))
+                    .month(targetMonth.getMonth().getDisplayName(TextStyle.FULL, new Locale("ar")))
+                    .monthEn(targetMonth.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+                    .projects(newProjects)
+                    .deliverables(completedDeliverables)
+                    .tickets(resolvedTickets)
                     .build());
         }
         return trends;
     }
+
 
     private List<ReportsDashboardDTO.ClientMetricDTO> buildClientMetrics(User user) {
         // Return metrics only for authorized roles

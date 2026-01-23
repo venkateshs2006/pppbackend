@@ -3,9 +3,11 @@ package com.java.ppp.pppbackend.service;
 
 import com.java.ppp.pppbackend.dto.UserDTO;
 import com.java.ppp.pppbackend.entity.Role;
+import com.java.ppp.pppbackend.entity.RoleType;
 import com.java.ppp.pppbackend.entity.User;
 import com.java.ppp.pppbackend.exception.BadRequestException;
 import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
+import com.java.ppp.pppbackend.repository.RoleRepository;
 import com.java.ppp.pppbackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,12 +35,13 @@ public class UserService {
     private UserRepository userRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
-
+    @Autowired
+    private RoleRepository roleRepository;
 
     @Transactional
     public UserDTO createUser(UserDTO userDTO) {
         log.debug("Creating user: {}", userDTO.getUsername());
-
+        log.debug("Creating user Details : {}", userDTO.toString());
         if (userRepository.existsByUsername(userDTO.getUsername())) {
             throw new BadRequestException("Username already exists");
         }
@@ -54,7 +59,7 @@ public class UserService {
         user.setLastName(userDTO.getLastName());
         user.setPhoneNumber(userDTO.getPhoneNumber());
         user.setJobTitle(userDTO.getJobTitle());
-
+        user.setDepartment(userDTO.getDepartment());
 
         // 2. CRITICAL FIX: Set and Encode the Password
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
@@ -64,7 +69,28 @@ public class UserService {
             // user.setPassword(passwordEncoder.encode("Temp@123"));
             throw new IllegalArgumentException("Password cannot be empty");
         }
-
+// 3. Handle Roles (Crucial Step)
+        Set<Role> roles = new HashSet<>();
+        if (userDTO.getRoles() != null && !userDTO.getRoles().isEmpty()) {
+            for (String roleName : userDTO.getRoles()) {
+                // Handle "Role Name" or "ROLE_NAME" formats
+                String normalizedName = roleName.toUpperCase().replace(" ", "_");
+                try {
+                    RoleType type = RoleType.valueOf(normalizedName);
+                    Role role = roleRepository.findByName(type)
+                            .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+                    roles.add(role);
+                } catch (IllegalArgumentException e) {
+                    throw new BadRequestException("Invalid Role Type: " + roleName);
+                }
+            }
+        } else {
+            // Default role if none selected
+            Role defaultRole = roleRepository.findByName(RoleType.SUB_CONSULTANT)
+                    .orElseThrow(() -> new RuntimeException("Default role not found"));
+            roles.add(defaultRole);
+        }
+        user.setRoles(roles);
         // 3. Set defaults
         user.setIsActive(true);
         user.setCreatedAt(Timestamp.valueOf(LocalDateTime.now()));
@@ -100,7 +126,23 @@ public class UserService {
         if (userDTO.getJobTitle() != null) {
             user.setJobTitle(userDTO.getJobTitle());
         }
-
+// ✅ CRITICAL FIX: Update Roles
+        if (userDTO.getRoles() != null && !userDTO.getRoles().isEmpty()) {
+            Set<Role> updatedRoles = new HashSet<>();
+            for (String roleName : userDTO.getRoles()) {
+                // Normalize Role Name (e.g., "Lead Consultant" -> "LEAD_CONSULTANT")
+                String normalizedName = roleName.toUpperCase().replace(" ", "_");
+                try {
+                    RoleType type = RoleType.valueOf(normalizedName);
+                    Role role = roleRepository.findByName(type)
+                            .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+                    updatedRoles.add(role);
+                } catch (IllegalArgumentException e) {
+                    throw new BadRequestException("Invalid Role: " + roleName);
+                }
+            }
+            user.setRoles(updatedRoles);
+        }
         user.setUpdatedAt(Timestamp.valueOf(LocalDateTime.now()));
         User updated = userRepository.save(user);
 

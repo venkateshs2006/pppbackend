@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,4 +35,7 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
 
     long countByProjectIdIn(List<UUID> projectIds);
 
+    // Inside interface TicketRepository
+    @Query("SELECT COUNT(t) FROM Ticket t WHERE t.project.id IN :projectIds AND t.status = :status AND t.resolvedAt BETWEEN :startDate AND :endDate")
+    long countByStatusAndDate(@Param("projectIds") List<UUID> projectIds, @Param("status") TicketStatus status, @Param("startDate") Timestamp startDate, @Param("endDate") Timestamp endDate);
 }

@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,7 +54,12 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, UUID> 
     @Query("SELECT COUNT(d) FROM Deliverable d WHERE d.status = 'APPROVED' AND d.project.id IN :projectIds")
     long countApprovedForProjects(@Param("projectIds") List<UUID> projectIds);
 
-
-
-
+    // ✅ FIX: Changed Timestamp to LocalDateTime to match Entity field 'updatedAt'
+    @Query("SELECT COUNT(d) FROM Deliverable d WHERE d.project.id IN :projectIds AND d.status = :status AND d.updatedAt BETWEEN :startDate AND :endDate")
+    long countByStatusAndDate(
+            @Param("projectIds") List<UUID> projectIds,
+            @Param("status") DeliverableStatus status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }

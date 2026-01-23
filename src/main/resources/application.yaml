@@ -15,7 +15,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/pppdb #jdbc:postgresql://ep-nameless-wave-ah2q2x07-pooler.c-3.us-east-1.aws.neon.tech/pppdb?sslmode=require&channel_binding=require
     username: postgres #neondb_owner
-    password: Mannit@12345 #npg_fHFhv42zuaJR
+    password: Mannit@12345   #npg_fHFhv42zuaJR
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

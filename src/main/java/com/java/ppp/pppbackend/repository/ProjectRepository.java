@@ -61,5 +61,7 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     @Query("SELECT p.status, COUNT(p) FROM Project p GROUP BY p.status")
     List<Object[]> countProjectsByStatus();
 
-
+    // Inside interface ProjectRepository
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.id IN :projectIds AND p.createdAt BETWEEN :startDate AND :endDate")
+    long countCreatedBetween(@Param("projectIds") List<UUID> projectIds, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }
