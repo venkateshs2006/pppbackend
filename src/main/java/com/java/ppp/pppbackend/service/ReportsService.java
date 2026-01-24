@@ -73,7 +73,7 @@ public class ReportsService {
         long completedProjects = projects.stream().filter(p -> "COMPLETED".equals(p.getStatus().name())).count();
 
         long totalDeliverables = deliverableRepository.countByProjectIdIn(projectIds);
-        long pendingDeliverables = deliverableRepository.countByStatusAndProjectIdIn(DeliverableStatus.PENDING_APPROVAL, projectIds); // Check your DeliverableStatus enum name
+        long pendingDeliverables = deliverableRepository.countByStatusAndProjectIdIn(DeliverableStatus.REVIEW, projectIds); // Check your DeliverableStatus enum name
         long approvedDeliverables = totalDeliverables - pendingDeliverables; // Simplified
 
         long totalTickets = ticketRepository.countByProjectIdIn(projectIds);

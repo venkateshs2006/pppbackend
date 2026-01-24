@@ -3,7 +3,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum DeliverableStatus {
-    DRAFT, IN_PROGRESS,PENDING_APPROVAL, REVIEW, APPROVED, REJECTED, COMPLETED;
+    DRAFT, IN_PROGRESS, REDO, REVIEW, APPROVED, REJECTED, COMPLETED;
 
     @JsonCreator
     public static DeliverableStatus fromString(String value) {

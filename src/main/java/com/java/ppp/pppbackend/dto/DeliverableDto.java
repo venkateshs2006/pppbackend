@@ -1,12 +1,11 @@
 package com.java.ppp.pppbackend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.java.ppp.pppbackend.entity.DeliverableStatus;
 import com.java.ppp.pppbackend.entity.DeliverableType;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -14,6 +13,7 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@ToString
 public class DeliverableDto {
     private UUID id;
     private String title;
@@ -26,6 +26,8 @@ public class DeliverableDto {
     private UUID parentId;
     private UUID projectId;
     private String fileName;
+    @JsonProperty("weightage")
+    private BigDecimal weightAge;
     private String fileUrl;
     private Long assignedToId;
     private String createdByName;

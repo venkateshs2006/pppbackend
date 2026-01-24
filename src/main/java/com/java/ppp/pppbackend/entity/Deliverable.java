@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.GenericGenerator;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -13,6 +15,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class Deliverable {
 
     @Id
@@ -30,6 +33,10 @@ public class Deliverable {
 
     @Column(columnDefinition = "TEXT")
     private String descriptionEn;
+
+    // ✅ New Field: Weightage
+    @Column(name = "weightage", nullable = true)
+    private BigDecimal weightage; // Default to 0 if not specified
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

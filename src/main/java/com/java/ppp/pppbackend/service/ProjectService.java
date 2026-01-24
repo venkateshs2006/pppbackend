@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -186,8 +187,34 @@ public class ProjectService {
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             project.setProjectManager(pm);
         }
-
         Project saved = projectRepository.save(project);
+// 2. ✅ FIX: Create Deliverables from the List<String>
+        if (dto.getDeliverables() != null && !dto.getDeliverables().isEmpty()) {
+            List<Deliverable> deliverablesToSave = new ArrayList<>();
+
+            for (String deliverableName : dto.getDeliverables()) {
+                if (deliverableName != null && !deliverableName.trim().isEmpty()) {
+                    Deliverable deliverable = new Deliverable();
+                    deliverable.setTitle(deliverableName);
+
+                    deliverable.setProject(saved); // Link to the new project
+
+                    deliverable.setType(DeliverableType.GUIDE);
+
+                    // OR if 'type' is an Enum in your Entity (Uncomment below):
+                    // deliverable.setType(DeliverableType.DOCUMENT);
+
+                    // ✅ FIX 2: Ensure Status is set (DRAFT or PENDING)
+                    deliverable.setStatus(DeliverableStatus.DRAFT);
+                    deliverablesToSave.add(deliverable);
+                }
+            }
+
+            if (!deliverablesToSave.isEmpty()) {
+                deliverableRepository.saveAll(deliverablesToSave);
+            }
+        }
+
         return mapToProjectResponseDTO(saved);
     }
 
@@ -262,6 +289,7 @@ public class ProjectService {
     private ClientInfoDTO mapClient(Client org) {
         if (org == null) return null;
         return ClientInfoDTO.builder()
+                .id(org.getId())
                 .organization(org.getName())
                 .organizationEn(org.getName()) // Use name as fallback or add nameEn to Org entity
                 .name(org.getName()) // Ideally fetch contact person
@@ -285,6 +313,7 @@ public class ProjectService {
     private ClientInfoDTO mapClientInfo(Project p) {
         if (p.getClient() == null) return null;
         return ClientInfoDTO.builder()
+                .id(p.getClient().getId())
                 .organization(p.getClient().getName())
                 .organizationEn(p.getClient().getName()) // Placeholder
                 .name("Admin Contact") // Ideally fetch from Org Contact Person

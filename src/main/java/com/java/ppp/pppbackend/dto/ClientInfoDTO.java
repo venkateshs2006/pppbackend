@@ -6,6 +6,7 @@ import lombok.Data;
 @Data
 @Builder
 public class ClientInfoDTO {
+    private Long id;
     private String name;           // Organization Contact Person
     private String nameEn;
     private String organization;   // Organization Name

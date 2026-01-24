@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,4 +63,16 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, UUID> 
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    // ✅ Custom Query to sum weightage
+    @Query("SELECT COALESCE(SUM(d.weightage), 0) FROM Deliverable d WHERE d.project.id = :projectId")
+    BigDecimal getTotalWeightageByProject(@Param("projectId") UUID projectId);
+
+    // If updating, we need to sum everything EXCEPT the current ID
+    @Query("SELECT COALESCE(SUM(d.weightage), 0) FROM Deliverable d WHERE d.project.id = :projectId AND d.id != :deliverableId")
+    BigDecimal getTotalWeightageByProjectExcluding(@Param("projectId") UUID projectId, @Param("deliverableId") UUID deliverableId);
+
+    @Query("SELECT COALESCE(SUM(d.weightage), 0) FROM Deliverable d WHERE d.project.id = :projectId AND d.status = :status")
+    BigDecimal getWeightageByProjectAndStatus(@Param("projectId") UUID projectId, @Param("status") DeliverableStatus status);
+
 }

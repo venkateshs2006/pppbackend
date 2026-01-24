@@ -5,6 +5,8 @@ import com.java.ppp.pppbackend.dto.DeliverableDto;
 import com.java.ppp.pppbackend.entity.Deliverable;
 import com.java.ppp.pppbackend.entity.DeliverableStatus;
 import com.java.ppp.pppbackend.entity.Project;
+import com.java.ppp.pppbackend.exception.BadRequestException;
+import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
 import com.java.ppp.pppbackend.repository.DeliverableRepository;
 import com.java.ppp.pppbackend.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,6 +35,7 @@ public class DeliverableService {
 
     private final DeliverableRepository repository;
     private final ProjectRepository projectRepository;
+
     @Value("${file.upload-dir}")
     String uploadDir;
 
@@ -41,27 +45,67 @@ public class DeliverableService {
         Deliverable entity = mapToEntity(dto);
         // Default logic
         entity.setStatus(DeliverableStatus.DRAFT);
-        return mapToDto(repository.save(entity));
+        System.out.println(entity.toString());
+        // ✅ NEW: Trigger Project Progress Recalculation
+        DeliverableDto data = mapToDto(repository.save(entity));
+        updateProjectProgress(entity.getProject().getId());
+        return data;
     }
 
     public DeliverableDto updateDeliverable(UUID id, DeliverableDto dto) {
         Deliverable existing = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Deliverable not found"));
-
+        System.out.println("Edit DTO :"+dto.toString());
         existing.setTitle(dto.getTitle());
         existing.setTitleEn(dto.getTitleEn());
         existing.setDescription(dto.getDescription());
         existing.setStatus(dto.getStatus());
+        BigDecimal newWeightage = dto.getWeightAge() != null ? dto.getWeightAge() : BigDecimal.valueOf(0.0);
+        if (newWeightage.compareTo(BigDecimal.ZERO) < 0 || newWeightage.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new BadRequestException("Weightage must be between 0 and 100.");
+        }
+        BigDecimal currentTotal = repository.getTotalWeightageByProject(dto.getProjectId());
+        BigDecimal totalProjectWeightage = currentTotal.add(newWeightage);
+        // 2. Check Total Project Weightage
 
+        if (totalProjectWeightage.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new BadRequestException("Total project weightage cannot exceed 100%. Current total: " + currentTotal + "%");
+        }
+        existing.setWeightage(dto.getWeightAge());
         // Handle file update logic here if fileUrl is present
         if(dto.getFileUrl() != null) {
             existing.setFileUrl(dto.getFileUrl());
             existing.setFileName(dto.getFileName());
         }
+        System.out.println("DB Object :"+existing.toString());
+        // ✅ NEW: Trigger Project Progress Recalculation
 
-        return mapToDto(repository.save(existing));
+        DeliverableDto data = mapToDto(repository.save(existing));
+        updateProjectProgress(existing.getProject().getId());
+        return data;
     }
+    private void updateProjectProgress(UUID projectId) {
+        // 1. Calculate sum of weightage for COMPLETED deliverables
+        // Note: Change 'COMPLETED' to 'APPROVED' if that is your definition of done
+        BigDecimal completedProgress = repository.getWeightageByProjectAndStatus(
+                projectId,
+                DeliverableStatus.COMPLETED
+        );
 
+        // 2. Safety Cap at 100%
+        if (completedProgress.compareTo(BigDecimal.valueOf(100)) > 0) {
+            completedProgress = BigDecimal.valueOf(100);
+        }
+
+        // 3. Fetch and Update Project
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        // Assuming Project entity has a 'progress' field of type Double or BigDecimal
+        project.setProgress(completedProgress.intValue());
+
+        projectRepository.save(project);
+    }
     // Assign to Client for Approval
     public void submitForApproval(UUID id, Long clientId) {
         Deliverable d = repository.findById(id).orElseThrow();
@@ -89,7 +133,10 @@ public class DeliverableService {
     }
 
     public void deleteDeliverable(UUID id) {
+        Deliverable deliverable = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Deliverable not found with id " + id));
         repository.deleteById(id);
+        updateProjectProgress(deliverable.getProject().getId());
     }
 
     public DeliverableDto uploadFile(UUID deliverableId, MultipartFile file) throws IOException {
@@ -175,6 +222,7 @@ public class DeliverableService {
         dto.setTitleEn(entity.getTitleEn());
         dto.setDescription(entity.getDescription());
         dto.setType(entity.getType());
+        dto.setWeightAge(entity.getWeightage());
         dto.setStatus(entity.getStatus());
         if (entity.getProject() != null) {
             dto.setProjectId(entity.getProject().getId());
@@ -190,15 +238,28 @@ public class DeliverableService {
     // Updated Mapping Method (DTO -> Entity)
     private Deliverable mapToEntity(DeliverableDto dto) {
         // 1. Fetch the project reference
+        System.out.println(dto.toString());
         Project project = projectRepository.findById(dto.getProjectId())
                 .orElseThrow(() -> new RuntimeException("Project not found with ID: " + dto.getProjectId()));
+        // 1. Validate Weightage input
+        BigDecimal newWeightage = dto.getWeightAge() != null ? dto.getWeightAge() : BigDecimal.valueOf(0.0);
+        if (newWeightage.compareTo(BigDecimal.ZERO) < 0 || newWeightage.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new BadRequestException("Weightage must be between 0 and 100.");
+        }
+        BigDecimal currentTotal = repository.getTotalWeightageByProject(dto.getProjectId());
+        BigDecimal totalProjectWeightage = currentTotal.add(newWeightage);
+        // 2. Check Total Project Weightage
 
+        if (totalProjectWeightage.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new BadRequestException("Total project weightage cannot exceed 100%. Current total: " + currentTotal + "%");
+        }
         // 2. Build entity with the relation
         return Deliverable.builder()
                 .id(dto.getId())
                 .title(dto.getTitle())
                 .titleEn(dto.getTitleEn())
                 .description(dto.getDescription())
+                .weightage(newWeightage)
                 .type(dto.getType())
                 .status(dto.getStatus())
                 .project(project) // Set the object, not the ID
