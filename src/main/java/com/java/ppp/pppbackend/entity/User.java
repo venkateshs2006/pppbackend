@@ -94,5 +94,8 @@ public class User {
     @LastModifiedDate
     @Column(name = "updated_at")
     private Timestamp updatedAt;
-
+    // ✅ ADD THIS MAPPING
+    @ManyToOne(fetch = FetchType.EAGER) // or LAZY if you prefer
+    @JoinColumn(name = "client_id") // Maps to the column in DB
+    private Client client;
 }

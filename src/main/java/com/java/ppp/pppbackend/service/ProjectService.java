@@ -2,6 +2,7 @@ package com.java.ppp.pppbackend.service;
 
 import com.java.ppp.pppbackend.dto.*;
 import com.java.ppp.pppbackend.entity.*;
+import com.java.ppp.pppbackend.exception.BadRequestException;
 import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
 import com.java.ppp.pppbackend.repository.*;
 import jakarta.transaction.Transactional;
@@ -76,10 +77,26 @@ public class ProjectService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        // Constraint #5: Verify Organization
+        if (!user.getClient().getId().equals(project.getClient().getId())) {
+            throw new BadRequestException("User must belong to the project's organization.");
+        }
+
+        // Constraints #1 & #3: Single Person Roles
+        if (role.equalsIgnoreCase("LEAD_CONSULTANT")) {
+            if (projectMemberRepository.existsByProjectIdAndRole(projectId, "LEAD_CONSULTANT")) {
+                throw new BadRequestException("This project already has a Lead Consultant.");
+            }
+        }
+
+        if (role.equalsIgnoreCase("MAIN_CLIENT")) {
+            if (projectMemberRepository.existsByProjectIdAndRole(projectId, "MAIN_CLIENT")) {
+                throw new BadRequestException("This project already has a Main Client.");
+            }
+        }
         // Check if user is already in the project
         boolean alreadyExists = project.getMembers().stream()
                 .anyMatch(member -> member.getUser().getId().equals(userId));
-
         if (alreadyExists) {
             projectMemberRepository.updateMemberRole(projectId,userId,role);
             return mapTeamMember(projectMemberRepository.findProjectMemberDetails(projectId,userId,role));
@@ -131,6 +148,24 @@ public class ProjectService {
     public ProjectResponseDTO updateProject(UUID id, ProjectDTO dto) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
+        // ✅ VALIDATION: Check before marking as COMPLETED
+        if (dto.getStatus() != null) {
+            ProjectStatus newStatus =dto.getStatus();
+
+            if (newStatus == ProjectStatus.COMPLETED) {
+                // Check if there are any deliverables that are NOT 'COMPLETED' (or 'APPROVED')
+                boolean hasPendingDeliverables = deliverableRepository.existsByProjectIdAndStatusNot(
+                        id,
+                        DeliverableStatus.COMPLETED // The status that counts as "Done"
+                );
+
+                if (hasPendingDeliverables) {
+                    throw new BadRequestException("Cannot complete project. All deliverables must be completed first.");
+                }
+            }
+
+            project.setStatus(newStatus);
+        }
         return saveOrUpdate(project, dto);
     }
 
@@ -264,7 +299,10 @@ public class ProjectService {
         List<Deliverable> deliverableList=p.getDeliverables();
         long deliverables=deliverableList.size();
         long completedDeliverables=deliverableList.stream().filter(d->d.getStatus()==DeliverableStatus.COMPLETED).count();
-
+// ✅ FIX: Calculate and Set Ticket Counts
+        long totalTickets = ticketRepository.countByProjectId(p.getId());
+        long openTickets = ticketRepository.countByProjectIdAndStatusNot(p.getId(), TicketStatus.CLOSED);
+        long closedTickets=ticketRepository.countByProjectIdAndStatus(p.getId(),TicketStatus.CLOSED);
         return ProjectResponseDTO.builder()
                 .id(p.getId().toString())
                 .title(p.getTitleAr())
@@ -283,6 +321,9 @@ public class ProjectService {
                 .team(mapTeamMembers(p.getMembers()))
                 .deliverables(deliverables)
                 .completedDeliverables(completedDeliverables)
+                .tickets(totalTickets)
+                .openTickets(openTickets)
+                .closedTickets(closedTickets)
                 .build();
     }
 
@@ -331,5 +372,26 @@ public class ProjectService {
                 .phoneNumber(pm.getPhoneNumber())
                 .build();
     }
+
+    // Fetch users for the dropdown (Same Organization Rule)
+    public List<UserSelectionDTO> getEligibleUsersForProject(UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        // Constraint #5: All roles should be in same organization
+        if (project.getClient() == null) {
+            return Collections.emptyList();
+        }
+
+        return userRepository.findByClientId(project.getClient().getId())
+                .stream()
+                .map(user -> new UserSelectionDTO(
+                        user.getId(),
+                        user.getFirstName() + " " + user.getLastName(),
+                        user.getEmail(),
+                        user.getJobTitle()))
+                .collect(Collectors.toList());
+    }
+
 
 }

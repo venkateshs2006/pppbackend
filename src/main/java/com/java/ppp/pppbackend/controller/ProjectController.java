@@ -86,4 +86,11 @@ public class ProjectController {
             return ResponseEntity.noContent().build();
 
     }
+    // API for Dropdown
+    @GetMapping("/{projectId}/eligibleUsers")
+    public ResponseEntity<List<UserSelectionDTO>> getEligibleUsers(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(projectService.getEligibleUsersForProject(projectId));
+    }
+
+
 }

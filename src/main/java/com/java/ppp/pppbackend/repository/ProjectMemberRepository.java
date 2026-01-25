@@ -27,4 +27,5 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
                              @Param("role") String role);
     // Optional: Find all members for a specific project ID
     List<ProjectMember> findByUserId(Long userId);
+    boolean existsByProjectIdAndRole(UUID projectId, String role);
 }

@@ -2,6 +2,7 @@ package com.java.ppp.pppbackend.dto;
 
 import com.java.ppp.pppbackend.entity.TicketPriority;
 import com.java.ppp.pppbackend.entity.TicketStatus;
+import com.java.ppp.pppbackend.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,7 +33,8 @@ public class TicketDTO {
     private ProjectInfo project;
     private ClientInfo client;
     private AssignedInfo assignedTo; // Optional (can be null)
-
+    private Long createdById;
+    private String createdByName;
     private String createdAt;
     private String updatedAt;
     private String dueDate;

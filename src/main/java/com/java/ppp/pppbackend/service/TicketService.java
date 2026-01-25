@@ -10,6 +10,8 @@ import com.java.ppp.pppbackend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,7 +64,14 @@ public class TicketService {
                 throw new BadRequestException("Invalid User ID format: " + dto.getAssignedTo().getId());
             }
         }
+// ✅ Get Current User from Security Context
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
 
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        ticket.setCreatedBy(currentUser);
         // 5. Save Entity
         ticket = ticketRepository.save(ticket);
 
@@ -114,6 +123,15 @@ public class TicketService {
     private TicketDTO convertToDTO(Ticket ticket) {
         TicketDTO dto = new TicketDTO();
         BeanUtils.copyProperties(ticket, dto);
+        if (ticket.getCreatedBy() != null) {
+            dto.setCreatedById(ticket.getCreatedBy().getId());
+            dto.setCreatedByName(ticket.getCreatedBy().getFirstName() + " " + ticket.getCreatedBy().getLastName());
+        } else {
+            dto.setCreatedById(0L);
+            dto.setCreatedByName("Unknown User");
+        }
+
+        System.out.println("Ticket Details :"+ dto.toString());
         return dto;
     }
 
@@ -301,7 +319,14 @@ public class TicketService {
 
         dto.setStatus(ticket.getStatus() != null ? ticket.getStatus() : TicketStatus.OPEN);
         dto.setPriority(ticket.getPriority() != null ? ticket.getPriority() : TicketPriority.MEDIUM);
-
+        // ✅ FIX: Null Check for CreatedBy
+        if (ticket.getCreatedBy() != null) {
+            dto.setCreatedById(ticket.getCreatedBy().getId());
+            dto.setCreatedByName(ticket.getCreatedBy().getFirstName() + " " + ticket.getCreatedBy().getLastName());
+        } else {
+            dto.setCreatedById(0L);
+            dto.setCreatedByName("Unknown User"); // Fallback text
+        }
         dto.setCategory(ticket.getCategory());
         dto.setCategoryEn(ticket.getCategory());
 
@@ -379,9 +404,38 @@ public class TicketService {
             }).collect(Collectors.toList());
             dto.setResponses(responses);
         }
-
+        System.out.println("Ticket Output :"+dto.toString());
         return dto;
     }
+    @Transactional
+    public TicketDTO updateTicketStatus(UUID id, String statusStr) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + id));
 
+        if (statusStr != null) {
+            try {
+                // Convert String to Enum (handle case sensitivity)
+                TicketStatus newStatus = TicketStatus.valueOf(statusStr.toUpperCase());
+                ticket.setStatus(newStatus);
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid status: " + statusStr);
+            }
+        }
+
+        Ticket savedTicket = ticketRepository.save(ticket);
+        return mapToDTO(savedTicket);
+    }
+    @Transactional
+    public void deleteTicket(UUID id) {
+        // Check existence first
+        if (!ticketRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Ticket not found with id: " + id);
+        }
+
+        // Delete the ticket
+        // Note: If you have Cascading set up in your Entity (e.g., for comments/responses),
+        // this will delete them too. Otherwise, you might get a Foreign Key constraint error.
+        ticketRepository.deleteById(id);
+    }
 
 }

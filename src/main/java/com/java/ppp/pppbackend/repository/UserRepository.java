@@ -74,4 +74,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "JOIN u.roles r " +
             "WHERE r.name = :roleName AND u.isActive = true")
     List<User> findByRoleName(@Param("roleName") String roleName);
+
+    List<User> findByClientId(Long organizationId);
+
+    // To check if a user belongs to the project's organization
+    boolean existsByIdAndClientId(Long userId, Long clientId);
 }

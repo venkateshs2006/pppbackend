@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -117,5 +118,22 @@ public class TicketController {
     @Operation(summary = "Get Tickets by User ID", description = "Retrieve all tickets assigned to or created by a specific User")
     public ResponseEntity<List<TicketDTO>> getTicketsByUser(@PathVariable Long userId) {
         return ResponseEntity.ok(ticketService.getTicketsByUser(userId));
+    }
+    @PatchMapping("/{id}")
+    public ResponseEntity<TicketDTO> updateTicketStatus(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> updates
+    ) {
+        // Extract status from the JSON body { "status": "IN_PROGRESS" }
+        String newStatus = updates.get("status");
+
+        TicketDTO updatedTicket = ticketService.updateTicketStatus(id, newStatus);
+        return ResponseEntity.ok(updatedTicket);
+    }
+    // ✅ FIX: Add DELETE Mapping
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTicket(@PathVariable UUID id) {
+        ticketService.deleteTicket(id);
+        return ResponseEntity.noContent().build(); // Returns HTTP 204 (Success, No Content)
     }
 }

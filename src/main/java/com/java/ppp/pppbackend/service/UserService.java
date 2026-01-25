@@ -2,11 +2,13 @@ package com.java.ppp.pppbackend.service;
 
 
 import com.java.ppp.pppbackend.dto.UserDTO;
+import com.java.ppp.pppbackend.entity.Client;
 import com.java.ppp.pppbackend.entity.Role;
 import com.java.ppp.pppbackend.entity.RoleType;
 import com.java.ppp.pppbackend.entity.User;
 import com.java.ppp.pppbackend.exception.BadRequestException;
 import com.java.ppp.pppbackend.exception.ResourceNotFoundException;
+import com.java.ppp.pppbackend.repository.ClientRepository;
 import com.java.ppp.pppbackend.repository.RoleRepository;
 import com.java.ppp.pppbackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -37,7 +40,8 @@ public class UserService {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private RoleRepository roleRepository;
-
+    @Autowired
+    private ClientRepository clientRepository;
     @Transactional
     public UserDTO createUser(UserDTO userDTO) {
         log.debug("Creating user: {}", userDTO.getUsername());
@@ -58,10 +62,26 @@ public class UserService {
         user.setFirstName(userDTO.getFirstName());
         user.setLastName(userDTO.getLastName());
         user.setPhoneNumber(userDTO.getPhoneNumber());
-        user.setJobTitle(userDTO.getJobTitle());
+        user.setJobTitle(userDTO.getRoles());
         user.setDepartment(userDTO.getDepartment());
+        // ✅ FIX 1: Map Job Title
+        // If your UI sends "role" as the job title, map it here:
+        user.setJobTitle(userDTO.getRoles());
+        // ✅ FIX 2: Map Organization (Client)
+        if (userDTO.getClientId() != null) {
+            Client organization = clientRepository.findById(userDTO.getClientId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+            user.setClient(organization);
+        }
 
-        // 2. CRITICAL FIX: Set and Encode the Password
+        // ✅ FIX 3: Map System Role (Permissions)
+        // This updates the user_roles table
+        if (userDTO.getRoles() != null) {
+            Role systemRole = roleRepository.findByName(RoleType.valueOf(userDTO.getRoles()))
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + userDTO.getRoles()));
+            user.setRoles(Collections.singleton(systemRole));
+        }
+       // 2. CRITICAL FIX: Set and Encode the Password
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         } else {
@@ -69,28 +89,6 @@ public class UserService {
             // user.setPassword(passwordEncoder.encode("Temp@123"));
             throw new IllegalArgumentException("Password cannot be empty");
         }
-// 3. Handle Roles (Crucial Step)
-        Set<Role> roles = new HashSet<>();
-        if (userDTO.getRoles() != null && !userDTO.getRoles().isEmpty()) {
-            for (String roleName : userDTO.getRoles()) {
-                // Handle "Role Name" or "ROLE_NAME" formats
-                String normalizedName = roleName.toUpperCase().replace(" ", "_");
-                try {
-                    RoleType type = RoleType.valueOf(normalizedName);
-                    Role role = roleRepository.findByName(type)
-                            .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
-                    roles.add(role);
-                } catch (IllegalArgumentException e) {
-                    throw new BadRequestException("Invalid Role Type: " + roleName);
-                }
-            }
-        } else {
-            // Default role if none selected
-            Role defaultRole = roleRepository.findByName(RoleType.SUB_CONSULTANT)
-                    .orElseThrow(() -> new RuntimeException("Default role not found"));
-            roles.add(defaultRole);
-        }
-        user.setRoles(roles);
         // 3. Set defaults
         user.setIsActive(true);
         user.setCreatedAt(Timestamp.valueOf(LocalDateTime.now()));
@@ -123,25 +121,25 @@ public class UserService {
         if (userDTO.getDepartment() != null) {
             user.setDepartment(userDTO.getDepartment());
         }
-        if (userDTO.getJobTitle() != null) {
-            user.setJobTitle(userDTO.getJobTitle());
+        if (userDTO.getRoles() != null) {
+            user.setJobTitle(userDTO.getRoles());
         }
-// ✅ CRITICAL FIX: Update Roles
-        if (userDTO.getRoles() != null && !userDTO.getRoles().isEmpty()) {
-            Set<Role> updatedRoles = new HashSet<>();
-            for (String roleName : userDTO.getRoles()) {
-                // Normalize Role Name (e.g., "Lead Consultant" -> "LEAD_CONSULTANT")
-                String normalizedName = roleName.toUpperCase().replace(" ", "_");
-                try {
-                    RoleType type = RoleType.valueOf(normalizedName);
-                    Role role = roleRepository.findByName(type)
-                            .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
-                    updatedRoles.add(role);
-                } catch (IllegalArgumentException e) {
-                    throw new BadRequestException("Invalid Role: " + roleName);
-                }
-            }
-            user.setRoles(updatedRoles);
+        // ✅ FIX 2: Map Organization (Client)
+        if (userDTO.getClientId() != null) {
+            Client organization = clientRepository.findById(userDTO.getClientId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+            user.setClient(organization);
+        }
+
+        // ✅ FIX 3: Map System Role (Permissions)
+        // This updates the user_roles table
+        if (userDTO.getRoles() != null) {
+            Role systemRole = roleRepository.findByName(RoleType.valueOf(userDTO.getRoles()))
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + userDTO.getRoles()));
+            user.setRoles(Collections.singleton(systemRole));
+        }
+        if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         }
         user.setUpdatedAt(Timestamp.valueOf(LocalDateTime.now()));
         User updated = userRepository.save(user);
@@ -275,9 +273,9 @@ public class UserService {
                 .bio(user.getBio())
                 .avatarUrl(user.getProfileImageUrl()==null?user.getFirstName().substring(0,1):user.getProfileImageUrl())
                 .department(user.getDepartment())
-                .jobTitle(user.getJobTitle())
+                //.roles(user.getJobTitle())
                 .isActive(user.getIsActive())
-                .roles(user.getRoles().stream().map(r->r.getName().getDbValue()).collect(Collectors.toList()))
+                .roles(user.getRoles().stream().map(r->r.getName().getDbValue()).collect(Collectors.toList()).toString())
                 .isEmailVerified(user.getIsEmailVerified())
                 .lastLoginAt(user.getLastLogin())
                 .createdAt(user.getCreatedAt())

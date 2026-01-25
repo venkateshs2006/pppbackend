@@ -38,4 +38,9 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
     // Inside interface TicketRepository
     @Query("SELECT COUNT(t) FROM Ticket t WHERE t.project.id IN :projectIds AND t.status = :status AND t.resolvedAt BETWEEN :startDate AND :endDate")
     long countByStatusAndDate(@Param("projectIds") List<UUID> projectIds, @Param("status") TicketStatus status, @Param("startDate") Timestamp startDate, @Param("endDate") Timestamp endDate);
+
+    // 2. Count OPEN tickets (Everything except CLOSED) for a project
+    // Assuming 'CLOSED' is the status for closed tickets
+    long countByProjectIdAndStatusNot(UUID projectId, TicketStatus status);
+
 }

@@ -60,18 +60,33 @@ public class DeliverableService {
         existing.setTitleEn(dto.getTitleEn());
         existing.setDescription(dto.getDescription());
         existing.setStatus(dto.getStatus());
-        BigDecimal newWeightage = dto.getWeightAge() != null ? dto.getWeightAge() : BigDecimal.valueOf(0.0);
-        if (newWeightage.compareTo(BigDecimal.ZERO) < 0 || newWeightage.compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new BadRequestException("Weightage must be between 0 and 100.");
-        }
-        BigDecimal currentTotal = repository.getTotalWeightageByProject(dto.getProjectId());
-        BigDecimal totalProjectWeightage = currentTotal.add(newWeightage);
-        // 2. Check Total Project Weightage
+           // ✅ FIX: Weightage Validation Logic for UPDATE
+        if (dto.getWeightAge() != null) {
+            BigDecimal newWeight = dto.getWeightAge();
 
-        if (totalProjectWeightage.compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new BadRequestException("Total project weightage cannot exceed 100%. Current total: " + currentTotal + "%");
+            // 1. Basic Range Check
+            if (newWeight.compareTo(BigDecimal.ZERO) < 0 || newWeight.compareTo(new BigDecimal("100")) > 0) {
+                throw new BadRequestException("Weightage must be between 0 and 100");
+            }
+
+            // 2. Check Total Cap (Excluding the current deliverable being updated)
+            BigDecimal otherDeliverablesTotal = repository.getTotalWeightageByProjectExcluding(
+                    existing.getProject().getId(),
+                    id // Pass the ID of the item we are updating
+            );
+
+            BigDecimal potentialTotal = otherDeliverablesTotal.add(newWeight);
+
+            if (potentialTotal.compareTo(new BigDecimal("100")) > 0) {
+                throw new BadRequestException(
+                        "Total weightage cannot exceed 100%. " +
+                                "Current Usage: " + otherDeliverablesTotal + "%. " +
+                                "You tried to add: " + newWeight + "%."
+                );
+            }
+
+            existing.setWeightage(newWeight);
         }
-        existing.setWeightage(dto.getWeightAge());
         // Handle file update logic here if fileUrl is present
         if(dto.getFileUrl() != null) {
             existing.setFileUrl(dto.getFileUrl());

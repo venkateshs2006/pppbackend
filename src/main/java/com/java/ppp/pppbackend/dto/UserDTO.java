@@ -21,7 +21,7 @@ public class UserDTO {
     private String password;
     private String phoneNumber;
     private String department;
-    private String jobTitle;
+    private Long clientId;
     private String avatarUrl;
     private Boolean isEmailVerified;
     private String bio;
@@ -31,5 +31,5 @@ public class UserDTO {
     private Timestamp createdAt;
     private Timestamp updatedAt;
     private LocalDateTime lastLoginAt;
-    private List<String> roles;
+    private String roles;
 }
