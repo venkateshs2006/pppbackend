@@ -32,5 +32,5 @@ public class ProjectDTO {
     private String descriptionEn;
     private String priority;
     private String clientId; // To link organization
-    private List<String> deliverables;
+    private List<DeliverableDto> deliverables;
 }

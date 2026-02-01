@@ -63,11 +63,10 @@ public class ClientService {
                 .name(dto.getName())
                 .description(dto.getDescription())
                 .logoUrl(dto.getLogoUrl())
-                .stripeCustomerId(dto.getStripeCustomerId())
+                .stripeCustomerId(dto.getContactEmail())
                 .stripeCustomerName(dto.getContactPersonName())
                 .subscriptionPlan(dto.getSubscriptionPlan())
                 .subscriptionStatus(dto.getSubscriptionStatus())
-                .stripeCustomerId(dto.getStripeCustomerId())
                 .build();
         return mapToDTO(clientRepository.save(org));
     }

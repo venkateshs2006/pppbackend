@@ -31,5 +31,5 @@ public class UserDTO {
     private Timestamp createdAt;
     private Timestamp updatedAt;
     private LocalDateTime lastLoginAt;
-    private String roles;
+    private String role;
 }

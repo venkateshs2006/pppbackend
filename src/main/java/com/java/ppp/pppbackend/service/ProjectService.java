@@ -11,10 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -76,9 +73,15 @@ public class ProjectService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Client defaultClient = clientRepository.findByName("Al-bayan PPP")
+                .orElseThrow(() -> new ResourceNotFoundException("Al-Bayan Client not found"));
+        System.out.println("User cleint ID  :"+user.getClient().getId());
+        System.out.println("project cleint ID  :"+project.getClient().getId());
+        System.out.println("defaultClient cleint ID  :"+defaultClient.getId());
+        System.out.println("Condition  :"+(!user.getClient().getId().equals(project.getClient().getId()) || !defaultClient.getId().equals(user.getClient().getId())));
 
         // Constraint #5: Verify Organization
-        if (!user.getClient().getId().equals(project.getClient().getId())) {
+        if (!user.getClient().getId().equals(project.getClient().getId()) && !defaultClient.getId().equals(user.getClient().getId())) {
             throw new BadRequestException("User must belong to the project's organization.");
         }
 
@@ -176,8 +179,8 @@ public class ProjectService {
         }
         projectRepository.deleteById(id);
     }
-
-    private ProjectResponseDTO saveOrUpdate(Project project, ProjectDTO dto) {
+    @Transactional
+    public ProjectResponseDTO saveOrUpdate(Project project, ProjectDTO dto) {
         // Map Basic Fields
         project.setTitleAr(dto.getTitle());
         project.setTitleEn(dto.getTitleEn());
@@ -223,30 +226,60 @@ public class ProjectService {
             project.setProjectManager(pm);
         }
         Project saved = projectRepository.save(project);
-// 2. ✅ FIX: Create Deliverables from the List<String>
-        if (dto.getDeliverables() != null && !dto.getDeliverables().isEmpty()) {
-            List<Deliverable> deliverablesToSave = new ArrayList<>();
-
-            for (String deliverableName : dto.getDeliverables()) {
-                if (deliverableName != null && !deliverableName.trim().isEmpty()) {
-                    Deliverable deliverable = new Deliverable();
-                    deliverable.setTitle(deliverableName);
-
-                    deliverable.setProject(saved); // Link to the new project
-
-                    deliverable.setType(DeliverableType.GUIDE);
-
-                    // OR if 'type' is an Enum in your Entity (Uncomment below):
-                    // deliverable.setType(DeliverableType.DOCUMENT);
-
-                    // ✅ FIX 2: Ensure Status is set (DRAFT or PENDING)
-                    deliverable.setStatus(DeliverableStatus.DRAFT);
-                    deliverablesToSave.add(deliverable);
+        // ------------------------------------------------------------------
+        // ✅ FIX: Handle Deliverables (Update, Insert, Delete Orphans)
+        // ------------------------------------------------------------------
+        if (dto.getDeliverables() != null) {
+            // 1. Fetch currently existing deliverables from DB for this project
+            List<Deliverable> existingInDb = deliverableRepository.findByProject_Id(saved.getId());
+            // 2. Identify IDs present in the incoming DTO list
+            Set<UUID> incomingIds = dto.getDeliverables().stream()
+                    .map(DeliverableDto::getId) // Assuming DeliverableDto has an 'id' field
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            // 3. DELETE ORPHANS: Remove items in DB that are NOT in the new list
+            List<Deliverable> toDelete = existingInDb.stream()
+                    .filter(d -> !incomingIds.contains(d.getId()))
+                    .collect(Collectors.toList());
+            if (!toDelete.isEmpty()) {
+                  for (Deliverable d : toDelete) {
+                    d.setProject(null); // Crucial step for JPA
                 }
+                // B. Now delete from Database
+                deliverableRepository.deleteAll(toDelete);
+                // C. (Optional) Force a flush to execute SQL immediately so you see errors if any
+                deliverableRepository.flush();
             }
 
-            if (!deliverablesToSave.isEmpty()) {
-                deliverableRepository.saveAll(deliverablesToSave);
+            // 4. SAVE (Update Existing or Create New)
+            List<Deliverable> toSave = new ArrayList<>();
+            for (DeliverableDto itemDto : dto.getDeliverables()) {
+                Deliverable deliverable;
+
+                if (itemDto.getId() != null) {
+                    // UPDATE: Find existing entity to update
+                    deliverable = existingInDb.stream()
+                            .filter(d -> d.getId().equals(itemDto.getId()))
+                            .findFirst()
+                            .orElse(new Deliverable()); // Fallback (shouldn't happen if ID is valid)
+                } else {
+                    // CREATE: No ID means it's a new item
+                    deliverable = new Deliverable();
+                    deliverable.setStatus(DeliverableStatus.DRAFT); // Default for new
+                    deliverable.setType(DeliverableType.GUIDE);
+                }
+
+                // Update Fields
+                deliverable.setTitle(itemDto.getTitle()); // Assuming DTO has 'name' or 'title'
+                deliverable.setProject(saved);
+
+                // Optional: Update Status if provided in DTO
+                // if (itemDto.getStatus() != null) deliverable.setStatus(itemDto.getStatus());
+
+                toSave.add(deliverable);
+            }
+            if (!toSave.isEmpty()) {
+                deliverableRepository.saveAll(toSave);
             }
         }
 
@@ -377,19 +410,23 @@ public class ProjectService {
     public List<UserSelectionDTO> getEligibleUsersForProject(UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
-
+        Client defaultClient = clientRepository.findByName("Al-bayan PPP")
+                .orElseThrow(() -> new ResourceNotFoundException("Al-Bayan Client not found"));
+        List<Client> clients=new ArrayList<>();
+        clients.add(project.getClient());
+        clients.add(defaultClient);
         // Constraint #5: All roles should be in same organization
-        if (project.getClient() == null) {
-            return Collections.emptyList();
-        }
 
-        return userRepository.findByClientId(project.getClient().getId())
+        return userRepository.findByClientIdIn(clients.stream()
+                .map(Client::getId)
+                .toList())
                 .stream()
                 .map(user -> new UserSelectionDTO(
                         user.getId(),
                         user.getFirstName() + " " + user.getLastName(),
                         user.getEmail(),
-                        user.getJobTitle()))
+                        user.getJobTitle(),
+                        user.getRoles().isEmpty()?null:user.getRoles().stream().findFirst().get().getName()))
                 .collect(Collectors.toList());
     }
 

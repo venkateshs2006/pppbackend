@@ -1,6 +1,7 @@
 package com.java.ppp.pppbackend.repository;
 
 
+import com.java.ppp.pppbackend.entity.Client;
 import com.java.ppp.pppbackend.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -77,6 +78,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByClientId(Long organizationId);
 
+    List<User> findByClientIdIn(List<Long> clientIds);
     // To check if a user belongs to the project's organization
     boolean existsByIdAndClientId(Long userId, Long clientId);
 }

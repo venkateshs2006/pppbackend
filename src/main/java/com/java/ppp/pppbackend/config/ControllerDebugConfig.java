@@ -23,8 +23,7 @@ public class ControllerDebugConfig {
 
             log.info("=== ALL REGISTERED ENDPOINTS ===");
             map.forEach((info, method) -> {
-                log.info("{} -> {}.{}",
-                        info.getPatternsCondition(),
+                log.info("{} --> {}",
                         method.getBeanType().getSimpleName(),
                         method.getMethod().getName());
             });

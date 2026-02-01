@@ -2,6 +2,7 @@ package com.java.ppp.pppbackend.repository;
 
 import com.java.ppp.pppbackend.entity.Deliverable;
 import com.java.ppp.pppbackend.entity.DeliverableStatus;
+import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -75,6 +76,9 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, UUID> 
     // ✅ NEW method for UPDATE (sums everything EXCEPT the specific ID)
     @Query("SELECT COALESCE(SUM(d.weightage), 0) FROM Deliverable d WHERE d.project.id = :projectId AND d.id != :excludeId")
     BigDecimal getTotalWeightageByProjectExcluding(@Param("projectId") UUID projectId, @Param("excludeId") UUID excludeId);
+    @Transactional
+    void deleteByProjectId(UUID projectId);
+    List<Deliverable> findByProject_Id(UUID projectId);
 }
 
 

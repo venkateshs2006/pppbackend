@@ -22,6 +22,7 @@ public class DeliverableDto {
     private String descriptionEn;
     private DeliverableType type;
     private DeliverableStatus status;
+    private String rejectionReason;
     private String version;
     private UUID parentId;
     private UUID projectId;

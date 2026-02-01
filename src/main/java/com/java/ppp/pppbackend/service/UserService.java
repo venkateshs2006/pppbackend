@@ -46,6 +46,7 @@ public class UserService {
     public UserDTO createUser(UserDTO userDTO) {
         log.debug("Creating user: {}", userDTO.getUsername());
         log.debug("Creating user Details : {}", userDTO.toString());
+        System.out.println("User Details To DB  :"+userDTO.toString());
         if (userRepository.existsByUsername(userDTO.getUsername())) {
             throw new BadRequestException("Username already exists");
         }
@@ -62,11 +63,12 @@ public class UserService {
         user.setFirstName(userDTO.getFirstName());
         user.setLastName(userDTO.getLastName());
         user.setPhoneNumber(userDTO.getPhoneNumber());
-        user.setJobTitle(userDTO.getRoles());
+        user.setJobTitle(userDTO.getRole());
+
         user.setDepartment(userDTO.getDepartment());
         // ✅ FIX 1: Map Job Title
         // If your UI sends "role" as the job title, map it here:
-        user.setJobTitle(userDTO.getRoles());
+        user.setJobTitle(userDTO.getRole());
         // ✅ FIX 2: Map Organization (Client)
         if (userDTO.getClientId() != null) {
             Client organization = clientRepository.findById(userDTO.getClientId())
@@ -76,9 +78,9 @@ public class UserService {
 
         // ✅ FIX 3: Map System Role (Permissions)
         // This updates the user_roles table
-        if (userDTO.getRoles() != null) {
-            Role systemRole = roleRepository.findByName(RoleType.valueOf(userDTO.getRoles()))
-                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + userDTO.getRoles()));
+        if (userDTO.getRole() != null) {
+            Role systemRole = roleRepository.findByName(RoleType.valueOf(userDTO.getRole()))
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + userDTO.getRole()));
             user.setRoles(Collections.singleton(systemRole));
         }
        // 2. CRITICAL FIX: Set and Encode the Password
@@ -93,7 +95,7 @@ public class UserService {
         user.setIsActive(true);
         user.setCreatedAt(Timestamp.valueOf(LocalDateTime.now()));
         user.setUpdatedAt(Timestamp.valueOf(LocalDateTime.now()));
-
+        System.out.println("User Details To DB  :"+user.toString());
         User saved = userRepository.save(user);
         return mapToDTO(saved);
     }
@@ -121,8 +123,8 @@ public class UserService {
         if (userDTO.getDepartment() != null) {
             user.setDepartment(userDTO.getDepartment());
         }
-        if (userDTO.getRoles() != null) {
-            user.setJobTitle(userDTO.getRoles());
+        if (userDTO.getRole() != null) {
+            user.setJobTitle(userDTO.getRole());
         }
         // ✅ FIX 2: Map Organization (Client)
         if (userDTO.getClientId() != null) {
@@ -133,9 +135,9 @@ public class UserService {
 
         // ✅ FIX 3: Map System Role (Permissions)
         // This updates the user_roles table
-        if (userDTO.getRoles() != null) {
-            Role systemRole = roleRepository.findByName(RoleType.valueOf(userDTO.getRoles()))
-                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + userDTO.getRoles()));
+        if (userDTO.getRole() != null) {
+            Role systemRole = roleRepository.findByName(RoleType.valueOf(userDTO.getRole()))
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + userDTO.getRole()));
             user.setRoles(Collections.singleton(systemRole));
         }
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
@@ -275,13 +277,12 @@ public class UserService {
                 .department(user.getDepartment())
                 //.roles(user.getJobTitle())
                 .isActive(user.getIsActive())
-                .roles(user.getRoles().stream().map(r->r.getName().getDbValue()).collect(Collectors.toList()).toString())
+                .role(user.getRoles().stream().map(r->r.getName().getDbValue()).collect(Collectors.toList()).toString())
                 .isEmailVerified(user.getIsEmailVerified())
                 .lastLoginAt(user.getLastLogin())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
     }
-
 
 }

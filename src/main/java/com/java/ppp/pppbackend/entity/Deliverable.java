@@ -46,6 +46,8 @@ public class Deliverable {
     @Column(nullable = false)
     private DeliverableStatus status;
 
+    @Column(name = "rejected_reason", columnDefinition = "TEXT")
+    private String rejectedReason;
     private String version; // e.g., "1.0", "1.1"
 
     private Integer orderIndex;

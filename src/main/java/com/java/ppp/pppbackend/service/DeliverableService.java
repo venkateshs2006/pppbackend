@@ -60,6 +60,7 @@ public class DeliverableService {
         existing.setTitleEn(dto.getTitleEn());
         existing.setDescription(dto.getDescription());
         existing.setStatus(dto.getStatus());
+        existing.setRejectedReason(dto.getRejectionReason());
            // ✅ FIX: Weightage Validation Logic for UPDATE
         if (dto.getWeightAge() != null) {
             BigDecimal newWeight = dto.getWeightAge();
@@ -92,9 +93,13 @@ public class DeliverableService {
             existing.setFileUrl(dto.getFileUrl());
             existing.setFileName(dto.getFileName());
         }
-        System.out.println("DB Object :"+existing.toString());
-        // ✅ NEW: Trigger Project Progress Recalculation
 
+        // ✅ NEW: Trigger Project Progress Recalculation
+        if(existing.getStatus()==DeliverableStatus.APPROVED) {
+            repository.save(existing);
+            //Auto Movement of APPROVED TO COMPLETED
+            existing.setStatus(DeliverableStatus.COMPLETED);
+        }
         DeliverableDto data = mapToDto(repository.save(existing));
         updateProjectProgress(existing.getProject().getId());
         return data;
@@ -239,6 +244,7 @@ public class DeliverableService {
         dto.setType(entity.getType());
         dto.setWeightAge(entity.getWeightage());
         dto.setStatus(entity.getStatus());
+        dto.setRejectionReason(entity.getRejectedReason());
         if (entity.getProject() != null) {
             dto.setProjectId(entity.getProject().getId());
         }
@@ -277,6 +283,7 @@ public class DeliverableService {
                 .weightage(newWeightage)
                 .type(dto.getType())
                 .status(dto.getStatus())
+                .rejectedReason(dto.getRejectionReason())
                 .project(project) // Set the object, not the ID
                 .parentId(dto.getParentId())
                 .build();
